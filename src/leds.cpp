@@ -1,8 +1,8 @@
 /* List of to-do's :
 	- Add support to /rejected topics
  */
-#include "iot_utils.hpp"
-#include "leds_secrets.h"
+#include "secrets/leds_secrets.h"
+#include "utils/iot_utils.hpp"
 #define SHADOW_GET_TOPIC "$aws/things/esp32_leds/shadow/get"
 #define SHADOW_GET_ACCEPTED_TOPIC "$aws/things/esp32_leds/shadow/get/accepted"
 #define SHADOW_UPDATE_TOPIC "$aws/things/esp32_leds/shadow/update"

@@ -1,27 +1,24 @@
 #include "Arduino.h"
-#include "MFRC522.h"
-#include "SPI.h"
+#include <MFRC522.h>
+#include <SPI.h>
+#include <string.h>
 #define D3 0
 #define D8 15
 #define D2 4
 #define D1 5
 #define D0 16
-#include <string.h>
 
-constexpr uint8_t NR_OF_READERS = 4;
+const uint8_t NUMBER_OF_READERS = 4;
+const uint8_t RST_PIN = D3;
+const uint8_t SS_0_PIN = D8;
+const uint8_t SS_1_PIN = D2;
+const uint8_t SS_2_PIN = D1;
+const uint8_t SS_3_PIN = D0;
 
-constexpr uint8_t RST_PIN = D3;
-constexpr uint8_t SS_0_PIN = D8;
-constexpr uint8_t SS_1_PIN = D2;
-constexpr uint8_t SS_2_PIN = D1;
-constexpr uint8_t SS_3_PIN = D0;
+const byte ssPins[] = { SS_0_PIN, SS_1_PIN, SS_2_PIN, SS_3_PIN };
+byte readedCard[NUMBER_OF_READERS][4]; // Matrix for storing UID over each reader, its 4 because the UID is stored in the first 4 bytes of the tag
+MFRC522 mfrc522[NUMBER_OF_READERS]; // Create MFRC522 instances
 
-byte ssPins[] = { SS_0_PIN, SS_1_PIN, SS_2_PIN, SS_3_PIN };
-
-byte readedCard[NR_OF_READERS][4]; // Matrix for storing UID over each reader, its 4 because the UID is stored in the first 4 bytes of the tag
-MFRC522 mfrc522[NR_OF_READERS]; // Create MFRC522 instances
-
-//************ Routine for scan readers and store the UIDs in readedCard array *************
 bool getRFID(byte readern)
 {
 	bool isPICCpresent = false;
@@ -53,15 +50,13 @@ void printUID(byte* buffer)
 		Serial.print(buffer[i], HEX);
 	}
 }
-
-//********************** START OF ROUTINE ***********************************
 void setup()
 {
 	Serial.begin(115200); // Initialize serial communications
 	while (!Serial)
 		; // Do nothing until serial connection is opened
 	SPI.begin(); // Init SPI bus
-	for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
+	for (uint8_t reader = 0; reader < NUMBER_OF_READERS; reader++) {
 		mfrc522[reader].PCD_Init(ssPins[reader], RST_PIN); // Init each MFRC522 card
 		Serial.print(F("Reader "));
 		Serial.print(reader);
@@ -74,7 +69,7 @@ void setup()
 
 void loop()
 {
-	for (uint8_t reader = 0; reader < NR_OF_READERS; reader++) {
+	for (uint8_t reader = 0; reader < NUMBER_OF_READERS; reader++) {
 		if (getRFID(reader)) {
 			Serial.print(F("Reader "));
 			Serial.print(reader);
