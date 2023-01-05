@@ -1,5 +1,5 @@
-#ifndef rfid_utils
-#define rfid_utils
+#ifndef single_rfid_utils
+#define single_rfid_utils
 #include <MFRC522.h>
 #define SS_PIN 5 // Pin de SDA del MFRC522
 #define RST_PIN 22 // Pin de RST del MFRC522

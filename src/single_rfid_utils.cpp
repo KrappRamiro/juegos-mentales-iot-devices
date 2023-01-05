@@ -1,4 +1,4 @@
-#include "rfid_utils.hpp"
+#include "single_rfid_utils.hpp"
 // The reason why mfrc522 is both in the header and in the source: https://stackoverflow.com/questions/74729454/platformio-c-multiple-multiple-definition-of
 MFRC522 mfrc522(SS_PIN, RST_PIN); // Defino los pines que van al modulo RC522
 String getUID(MFRC522& rfid_mfrc522)

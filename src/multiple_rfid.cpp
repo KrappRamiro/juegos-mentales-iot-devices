@@ -18,7 +18,7 @@ constexpr uint8_t SS_3_PIN = D0;
 
 byte ssPins[] = { SS_0_PIN, SS_1_PIN, SS_2_PIN, SS_3_PIN };
 
-byte readedCard[NR_OF_READERS][4]; // Matrix for storing UID over each reader
+byte readedCard[NR_OF_READERS][4]; // Matrix for storing UID over each reader, its 4 because the UID is stored in the first 4 bytes of the tag
 MFRC522 mfrc522[NR_OF_READERS]; // Create MFRC522 instances
 
 //************ Routine for scan readers and store the UIDs in readedCard array *************
@@ -43,7 +43,9 @@ bool getRFID(byte readern)
 	return isPICCpresent; // returns TRUE if PICC is detected, false if not
 }
 
-//******************** Routine for print 4 byte UID to serial ******************************
+//*********** Routine for print 4 byte UID to serial ******************
+
+// For more information about why the loop stops at 4, see section 8.6.1 of https://www.nxp.com/docs/en/data-sheet/MF1S50YYX_V1.pdf, its because we need to read the NUID, which is stored in the first 4 bytes
 void printUID(byte* buffer)
 {
 	for (byte i = 0; i < 4; i++) {
@@ -51,7 +53,8 @@ void printUID(byte* buffer)
 		Serial.print(buffer[i], HEX);
 	}
 }
-//********************************END OF ROUTINE********************************************
+
+//********************** START OF ROUTINE ***********************************
 void setup()
 {
 	Serial.begin(115200); // Initialize serial communications
