@@ -27,39 +27,33 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	if (strcmp(topic, SHADOW_GET_ACCEPTED_TOPIC) == 0) {
 		Serial.println("Getting the info from the shadow");
 		deserializeJson(doc, payload); // Put the info from the payload into the JSON document
-		// Process the ledRojo value
-		if (doc["state"]["desired"]["ledRojo"] == nullptr) {
-			ledRojo = 2;
-		} else {
+		if (doc["state"]["desired"]["ledRojo"] != nullptr) {
 			ledRojo = doc["state"]["desired"]["ledRojo"];
+			digitalWrite(PIN_LED_ROJO, ledRojo);
 		}
-		if (doc["state"]["desired"]["ledVerde"] == nullptr) {
-			ledVerde = 2;
-		} else {
+		if (doc["state"]["desired"]["ledVerde"] != nullptr) {
 			ledVerde = doc["state"]["desired"]["ledVerde"];
+			digitalWrite(PIN_LED_VERDE, ledVerde);
 		}
-		if (doc["state"]["desired"]["ledAmarillo"] == nullptr) {
-			ledAmarillo = 2;
-		} else {
+		if (doc["state"]["desired"]["ledAmarillo"] != nullptr) {
 			ledAmarillo = doc["state"]["desired"]["ledAmarillo"];
+			digitalWrite(PIN_LED_AMARILLO, ledAmarillo);
 		}
+
 	} else if (strcmp(topic, SHADOW_UPDATE_DELTA_TOPIC) == 0) {
 		Serial.println("Getting the delta difference from the shadow");
 		deserializeJson(doc, payload); // Put the info from the payload into the JSON document
-		if (doc["state"]["ledRojo"] == nullptr) {
-			ledRojo = 2;
-		} else {
-			ledRojo = doc["state"]["ledRojo"];
+		if (doc["state"]["ledRojo"] != nullptr) {
+
+			digitalWrite(PIN_LED_ROJO, doc["state"]["ledRojo"]);
 		}
-		if (doc["state"]["ledVerde"] == nullptr) {
-			ledVerde = 2;
-		} else {
-			ledVerde = doc["state"]["ledVerde"];
+		if (doc["state"]["ledVerde"] != nullptr) {
+
+			digitalWrite(PIN_LED_VERDE, doc["state"]["ledVerde"]);
 		}
-		if (doc["state"]["ledAmarillo"] == nullptr) {
-			ledAmarillo = 2;
-		} else {
-			ledAmarillo = doc["state"]["ledAmarillo"];
+		if (doc["state"]["ledAmarillo"] != nullptr) {
+
+			digitalWrite(PIN_LED_AMARILLO, doc["state"]["ledAmarillo"]);
 		}
 	}
 	// Print the LED's state for debugging info
@@ -70,35 +64,6 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 		ledRojo, ledVerde, ledAmarillo);
 #pragma endregion
 
-#pragma region // Region that changes the LED's state
-	if (ledRojo == 2) {
-		Serial.println("ledRojo was no change");
-	} else if (ledRojo == 1) {
-		Serial.println("Turning ON ledRojo");
-		digitalWrite(PIN_LED_ROJO, HIGH);
-	} else {
-		Serial.println("Turning OFF ledRojo");
-		digitalWrite(PIN_LED_ROJO, LOW);
-	}
-	if (ledVerde == 2) {
-		Serial.println("ledVerde was no change");
-	} else if (ledVerde == 1) {
-		Serial.println("Turning ON ledVerde");
-		digitalWrite(PIN_LED_VERDE, HIGH);
-	} else {
-		Serial.println("Turning OFF ledVerde");
-		digitalWrite(PIN_LED_VERDE, LOW);
-	}
-	if (ledAmarillo == 2) {
-		Serial.println("ledAmarillo was no change");
-	} else if (ledAmarillo == 1) {
-		Serial.println("Turning ON ledAmarillo");
-		digitalWrite(PIN_LED_AMARILLO, HIGH);
-	} else {
-		Serial.println("Turning OFF ledAmarillo");
-		digitalWrite(PIN_LED_AMARILLO, LOW);
-	}
-#pragma endregion
 #pragma region // Region that reports the current state to the shadow
 	doc.clear();
 	doc["state"]["reported"]["ledRojo"] = ledRojo;

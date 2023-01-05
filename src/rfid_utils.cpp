@@ -4,11 +4,6 @@ MFRC522 mfrc522(SS_PIN, RST_PIN); // Defino los pines que van al modulo RC522
 String getUID(MFRC522& rfid_mfrc522)
 {
 	/*
-	Esta funcion retorna el UID del tag RFID
-	Args:
-		rfid_mfrc522: objeto de la clase MFRC522
-{
-	/*
 	Esta funcion retorna el UID del tag que se esta leyendo
 	Args:
 		None

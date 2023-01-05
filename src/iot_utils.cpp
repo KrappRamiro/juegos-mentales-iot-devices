@@ -13,9 +13,16 @@ void connectAWS(const char* wifi_ssid, const char* wifi_password, const char* th
 		Serial.print(".");
 	}
 	// Configure WiFiClientSecure to use the AWS IoT device credentials
+#ifdef ESP32
 	net.setCACert(aws_cert_ca);
 	net.setCertificate(aws_cert_crt);
 	net.setPrivateKey(aws_cert_private);
+#elif defined(ESP8266)
+	// See https://how2electronics.com/connecting-esp8266-to-amazon-aws-iot-core-using-mqtt/
+	BearSSL::X509List cert(aws_cert_ca);
+	BearSSL::X509List client_crt(aws_cert_crt);
+	BearSSL::PrivateKey key(aws_cert_private);
+#endif
 	// Connect to the MQTT broker on the AWS endpoint we defined earlier
 	client.setServer(aws_cert_endpoint, 8883);
 	client.setBufferSize(2048); // See https://github.com/knolleary/pubsubclient/issues/485#issuecomment-435236670
