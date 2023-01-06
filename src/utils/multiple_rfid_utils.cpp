@@ -30,26 +30,39 @@ void printUID(byte* buffer)
 		Serial.print(buffer[i], HEX);
 	}
 }
+
 void readRFIDVersions(MFRC522* mfrc522, const byte* ssPins)
 {
-	for (uint8_t reader = 0; reader < NUMBER_OF_READERS; reader++) {
-		mfrc522[reader].PCD_Init(ssPins[reader], RST_PIN); // Init each MFRC522 card
+	for (uint8_t readerNumber = 0; readerNumber < NUMBER_OF_READERS; readerNumber++) {
+		mfrc522[readerNumber].PCD_Init(ssPins[readerNumber], RST_PIN); // Init each MFRC522 card
 		Serial.print(F("Reader "));
-		Serial.print(reader);
+		Serial.print(readerNumber);
 		Serial.print(F(": "));
-		mfrc522[reader].PCD_DumpVersionToSerial();
+		mfrc522[readerNumber].PCD_DumpVersionToSerial();
 	}
 }
 
 void readMultipleRFID(MFRC522* mfrc522, byte readedCard[NUMBER_OF_READERS][4])
 {
-	for (uint8_t reader = 0; reader < NUMBER_OF_READERS; reader++) {
-		if (getRFID(mfrc522, reader, readedCard)) {
+	for (uint8_t readerNumber = 0; readerNumber < NUMBER_OF_READERS; readerNumber++) {
+		if (getRFID(mfrc522, readerNumber, readedCard)) {
 			Serial.print(F("Reader "));
-			Serial.print(reader);
+			Serial.print(readerNumber);
 			Serial.print(F(": Card UID:"));
-			printUID(readedCard[reader]);
+			printUID(readedCard[readerNumber]);
 			Serial.println();
 		}
 	}
+}
+
+String getUIDFromReadingStorage(byte readingStorage[NUMBER_OF_READERS][4], int readerNumber)
+{
+	String content = "";
+	for (byte i = 0; i < 4; i++) {
+		content.concat(String(readingStorage[readerNumber][i] < 0x10 ? " 0" : " "));
+		content.concat(String(readingStorage[readerNumber][i], HEX));
+	}
+	content.toUpperCase();
+	String theUID = content.substring(1);
+	return theUID;
 }
