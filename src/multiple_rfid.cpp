@@ -14,29 +14,13 @@ void setup()
 	while (!Serial)
 		; // Do nothing until serial connection is opened
 	SPI.begin(); // Init SPI bus
-	for (uint8_t reader = 0; reader < NUMBER_OF_READERS; reader++) {
-		mfrc522[reader].PCD_Init(ssPins[reader], RST_PIN); // Init each MFRC522 card
-		Serial.print(F("Reader "));
-		Serial.print(reader);
-		Serial.print(F(": "));
-		mfrc522[reader].PCD_DumpVersionToSerial();
-	}
+	readRFIDVersions(mfrc522, ssPins);
 	pinMode(RST_PIN, OUTPUT);
 	digitalWrite(RST_PIN, LOW); // mfrc522 readers hard power down.
 }
 
 void loop()
 {
-	for (uint8_t reader = 0; reader < NUMBER_OF_READERS; reader++) {
-		if (getRFID(mfrc522, reader, readedCard)) {
-			Serial.print(F("Reader "));
-			Serial.print(reader);
-			Serial.print(F(": Card UID:"));
-			printUID(readedCard[reader]);
-			Serial.println();
-		}
-	}
+	readMultipleRFID(mfrc522, readedCard);
 	delay(2000);
 }
-
-//********************************END OF ROUTINE********************************************

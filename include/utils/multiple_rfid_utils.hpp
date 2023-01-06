@@ -5,5 +5,6 @@
 #include "MFRC522.h"
 bool getRFID(MFRC522* mfrc522, byte readern, byte readedCard[NUMBER_OF_READERS][4]);
 void printUID(byte* buffer);
-
+void readRFIDVersions(MFRC522* mfrc522, const byte* ssPins);
+void readMultipleRFID(MFRC522* mfrc522, byte readedCard[NUMBER_OF_READERS][4]);
 #endif
