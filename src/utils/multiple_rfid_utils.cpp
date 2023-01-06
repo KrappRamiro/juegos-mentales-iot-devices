@@ -60,12 +60,12 @@ void readMultipleRFID(MFRC522* mfrc522, byte readedCard[NUMBER_OF_READERS][4])
 	}
 }
 
-String getUIDFromReadingStorage(byte readingStorage[NUMBER_OF_READERS][4], int readerNumber)
+String getUIDFromReadingStorage(byte readedCard[NUMBER_OF_READERS][4], int readerNumber)
 {
 	String content = "";
 	for (byte i = 0; i < 4; i++) {
-		content.concat(String(readingStorage[readerNumber][i] < 0x10 ? " 0" : " "));
-		content.concat(String(readingStorage[readerNumber][i], HEX));
+		content.concat(String(readedCard[readerNumber][i] < 0x10 ? " 0" : " "));
+		content.concat(String(readedCard[readerNumber][i], HEX));
 	}
 	content.toUpperCase();
 	String theUID = content.substring(1);

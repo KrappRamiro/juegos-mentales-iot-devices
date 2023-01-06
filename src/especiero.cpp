@@ -22,7 +22,7 @@ void setup()
 	connectAWS(WIFI_SSID, WIFI_PASSWORD, THINGNAME, AWS_CERT_CA, AWS_CERT_CRT, AWS_CERT_PRIVATE, AWS_IOT_ENDPOINT);
 	Serial.println("B");
 	SPI.begin(); // Init SPI bus
-	// readRFIDVersions(mfrc522, ssPins);
+	readRFIDVersions(mfrc522, ssPins);
 	pinMode(RST_PIN, OUTPUT);
 	digitalWrite(RST_PIN, LOW); // mfrc522 readers hard power down.
 }
