@@ -1,9 +1,5 @@
 #include "utils/multiple_rfid_utils.hpp"
 
-const byte ssPins[] = { SS_0_PIN, SS_1_PIN, SS_2_PIN, SS_3_PIN };
-byte readedCard[NUMBER_OF_READERS][4]; // Matrix for storing UID over each reader, its 4 because the UID is stored in the first 4 bytes of the tag, think of it as a "Readed UID Storage"
-MFRC522 mfrc522[NUMBER_OF_READERS]; // Create MFRC522 instances
-
 void setup()
 {
 	Serial.begin(115200); // Initialize serial communications
