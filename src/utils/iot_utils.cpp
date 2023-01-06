@@ -1,4 +1,6 @@
 #include "utils/iot_utils.hpp"
+time_t now;
+time_t nowish = 1510592825;
 // The reason why net and client are both in the header and in the source: https://stackoverflow.com/questions/74729454/platformio-c-multiple-multiple-definition-of
 WiFiClientSecure net = WiFiClientSecure();
 PubSubClient client(net);
@@ -18,10 +20,13 @@ void connectAWS(const char* wifi_ssid, const char* wifi_password, const char* th
 	net.setCertificate(aws_cert_crt);
 	net.setPrivateKey(aws_cert_private);
 #elif defined(ESP8266)
+	NTPConnect();
 	// See https://how2electronics.com/connecting-esp8266-to-amazon-aws-iot-core-using-mqtt/
 	BearSSL::X509List cert(aws_cert_ca);
 	BearSSL::X509List client_crt(aws_cert_crt);
 	BearSSL::PrivateKey key(aws_cert_private);
+	net.setTrustAnchors(&cert);
+	net.setClientRSACert(&client_crt, &key);
 #endif
 	// Connect to the MQTT broker on the AWS endpoint we defined earlier
 	client.setServer(aws_cert_endpoint, 8883);
@@ -59,4 +64,23 @@ void reconnect(const char* thingname, const char* aws_iot_publish_topic)
 			delay(5000);
 		}
 	}
+}
+
+void NTPConnect(void)
+{
+	Serial.print("Setting time using SNTP");
+	configTime(-3 * 3600, 0 * 3600, "pool.ntp.org", "time.nist.gov");
+	now = time(nullptr);
+	while (now < nowish)
+
+	{
+		delay(500);
+		Serial.print(".");
+		now = time(nullptr);
+	}
+	Serial.println("done!");
+	struct tm timeinfo;
+	gmtime_r(&now, &timeinfo);
+	Serial.print("Current time: ");
+	Serial.print(asctime(&timeinfo));
 }
