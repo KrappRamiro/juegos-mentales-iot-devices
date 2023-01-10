@@ -3,6 +3,7 @@
 byte readingStorage[NUMBER_OF_READERS][4]; // Matrix for storing UID over each reader, its 4 because the UID is stored in the first 4 bytes of the tag, think of it as a "Readed UID Storage"
 const byte ssPins[] = { SS_0_PIN, SS_1_PIN, SS_2_PIN, SS_3_PIN };
 MFRC522 mfrc522[NUMBER_OF_READERS]; // Create MFRC522 instances
+bool newRFIDAppeared;
 
 bool getRFID(byte readerNumber)
 {
@@ -36,7 +37,7 @@ void printUID(byte* buffer)
 	}
 }
 
-void readRFIDVersions()
+void printRFIDVersions()
 {
 	for (uint8_t readerNumber = 0; readerNumber < NUMBER_OF_READERS; readerNumber++) {
 		mfrc522[readerNumber].PCD_Init(ssPins[readerNumber], RST_PIN); // Init each MFRC522 card
@@ -47,7 +48,7 @@ void readRFIDVersions()
 	}
 }
 
-void readMultipleRFID()
+void printMultipleRFID()
 {
 	for (uint8_t readerNumber = 0; readerNumber < NUMBER_OF_READERS; readerNumber++) {
 		if (getRFID(readerNumber)) {
@@ -56,6 +57,7 @@ void readMultipleRFID()
 			Serial.print(F(": Card UID:"));
 			printUID(readingStorage[readerNumber]);
 			Serial.println();
+			newRFIDAppeared = true;
 		}
 	}
 }
