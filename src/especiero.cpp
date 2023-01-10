@@ -1,7 +1,7 @@
 #include "secrets/especiero_secrets.h"
 #include "utils/iot_utils.hpp"
 #include "utils/multiple_rfid_utils.hpp"
-String lastPub[NUMBER_OF_READERS];
+String lastPub[NUMBER_OF_READERS]; // should be in the mixin
 bool should_publish;
 void publishMessage()
 {
