@@ -28,6 +28,7 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	bool electroiman = 0;
 	StaticJsonDocument<256> doc;
 	Serial.printf("MESSAGE HANDLER: Topic: %s\n", topic);
+	// ------------ RETRIEVING THE SHADOW DOCUMENT FROM AWS -------------//
 	if (strcmp(topic, SHADOW_GET_ACCEPTED_TOPIC) == 0) {
 		deserializeJson(doc, payload); // Put the info from the payload into the JSON document
 		if (doc["state"]["desired"]["electroiman"] != nullptr) {
@@ -35,6 +36,8 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 			digitalWrite(PIN_ELECTROIMAN, electroiman);
 		}
 	}
+	// ------------------------------------------------------------------//
+	// ----------------- RETRIEVING THE DELTA FROM AWS ------------------//
 	if (strcmp(topic, SHADOW_UPDATE_DELTA_TOPIC) == 0) {
 		deserializeJson(doc, payload); // Put the info from the payload into the JSON document
 		if (doc["state"]["electroiman"] != nullptr) {
@@ -42,13 +45,14 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 			digitalWrite(PIN_ELECTROIMAN, electroiman);
 		}
 	}
+	// ------------------------------------------------------------------//
 
 #pragma region // Region that reports the current state to the shadow
-	doc.clear();
+	doc.clear(); // Clear the JSON document so it can be used to publish the current state
 	electroiman = digitalRead(PIN_ELECTROIMAN);
 	doc["state"]["reported"]["electroiman"] = electroiman;
 	char jsonBuffer[256];
-	serializeJsonPretty(doc, jsonBuffer); // print to client
+	serializeJsonPretty(doc, jsonBuffer);
 	Serial.println("Reporting the following to the shadow:");
 	Serial.println(jsonBuffer);
 	client.publish(SHADOW_UPDATE_TOPIC, jsonBuffer);
@@ -64,7 +68,7 @@ void publishMessage(const char* topic, char myKey = ' ')
 		StaticJsonDocument<200> doc;
 		char jsonBuffer[200];
 		doc["key"] = myKeyStr;
-		serializeJson(doc, jsonBuffer); // print to client
+		serializeJson(doc, jsonBuffer);
 		result = (client.publish("heladera/teclado", jsonBuffer)) ? "success publishing" : "failed publishing";
 	}
 	Serial.println(result);
@@ -73,24 +77,26 @@ void publishMessage(const char* topic, char myKey = ' ')
 void setup()
 {
 	Serial.begin(115200);
-	connectAWS(WIFI_SSID, WIFI_PASSWORD, THINGNAME, AWS_CERT_CA, AWS_CERT_CRT, AWS_CERT_PRIVATE, AWS_IOT_ENDPOINT);
-	client.subscribe(SHADOW_GET_ACCEPTED_TOPIC, 1);
-	client.subscribe(SHADOW_UPDATE_DELTA_TOPIC, 1);
+	connectAWS(WIFI_SSID, WIFI_PASSWORD, THINGNAME, AWS_CERT_CA, AWS_CERT_CRT, AWS_CERT_PRIVATE, AWS_IOT_ENDPOINT); // Connect to AWS
+	client.subscribe(SHADOW_GET_ACCEPTED_TOPIC, 1); // Subscribe to the topic that gets the initial state
+	client.subscribe(SHADOW_UPDATE_DELTA_TOPIC, 1); // Subscribe to the topic that updates the state every time it changes
 	client.setCallback(messageHandler);
 	pinMode(PIN_ELECTROIMAN, OUTPUT);
-	// For some weird reason, the ESP32 doesnt catch the get/accepted response at the first attemp
 
+	// ----------- Get the Shadow document --------------//
 	StaticJsonDocument<8> doc;
 	char jsonBuffer[8];
-	serializeJson(doc, jsonBuffer); // print to client
+	serializeJson(doc, jsonBuffer);
+	// For some weird reason, the ESP8266 doesnt catch the get/accepted response at the first attemp, so it needs to be done twice
 	client.publish(SHADOW_GET_TOPIC, jsonBuffer);
-	delay(100);
+	delay(1000);
 	client.publish(SHADOW_GET_TOPIC, jsonBuffer);
+	// --------------------------------------------------//
 }
 
 void loop()
 {
-	now = time(nullptr);
+	now = time(nullptr); // The NTP server uses this, if you delete this, the connection to AWS no longer works
 	if (!client.connected()) {
 		reconnect(THINGNAME, "heladera/status");
 	}
@@ -99,6 +105,7 @@ void loop()
 	if (myKey != NULL) {
 		Serial.print("Key pressed: ");
 		Serial.println(myKey);
-		publishMessage("heladera/teclado", myKey);
+		publishMessage("heladera/teclado", myKey); // Publish the pressed key to AWS
 	}
+	delay(100);
 }
