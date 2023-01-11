@@ -18,8 +18,8 @@ char keys[n_rows][n_cols] = {
 	{ '7', '8', '9', 'C' },
 	{ '*', '0', '#', 'D' }
 };
-byte colPins[n_rows] = { D4, D5, D6, D7 };
-byte rowPins[n_cols] = { D0, D1, D2, D3 };
+byte rowPins[n_rows] = { D7, D6, D5, D0 };
+byte colPins[n_cols] = { D1, D2, D3, D4 };
 Keypad myKeypad = Keypad(makeKeymap(keys), rowPins, colPins, n_rows, n_cols);
 // ----------- END OF KEYPAD CREATION ------------- //
 
