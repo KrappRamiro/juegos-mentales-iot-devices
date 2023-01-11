@@ -9,21 +9,26 @@
 #define LED D8
 byte brightness_level = 150;
 int rn;
-String mode;
+String mode = "scary";
 unsigned long flicker_previousMillis = 0; // will store last time LED was updated
 unsigned long flicker_interval = 0; // interval at which to make scary light effects (milliseconds)
 unsigned long off_on_previousMillis = 0; // will store last time LED was updated
 unsigned long off_on_interval = 0; // interval at which to make scary light effects (milliseconds)
+unsigned long flicker_min_time = 0;
+unsigned long flicker_max_time = 0;
+unsigned long off_on_min_time = 0;
+unsigned long off_on_max_time = 0;
 
 void turn_off_on()
 {
-	const long interval = random(3000, 7000); // interval at which to blink (milliseconds)
+	const unsigned long interval = random(3000, 7000); // interval at which to blink (milliseconds)
 
 	Serial.println("Turning off and on the light");
 	for (int i = 0; i < 60; i++) {
 		rn = random(10, brightness_level - i / 2);
 		analogWrite(LED, rn);
 		ESP.wdtFeed();
+		local_yield();
 		delay(50);
 	}
 	digitalWrite(LED, LOW);
@@ -31,6 +36,7 @@ void turn_off_on()
 	unsigned long currentMillis = millis();
 	while (1) {
 		ESP.wdtFeed();
+		local_yield();
 		if (millis() - currentMillis >= interval) {
 			break;
 		}
@@ -40,6 +46,7 @@ void turn_off_on()
 		rn = random(20, brightness_level);
 		analogWrite(LED, rn);
 		ESP.wdtFeed();
+		local_yield();
 		delay(50);
 	}
 	analogWrite(LED, brightness_level);
@@ -65,28 +72,32 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	// ------------ RETRIEVING THE SHADOW DOCUMENT FROM AWS -------------//
 	if (strcmp(topic, SHADOW_GET_ACCEPTED_TOPIC) == 0) {
 		deserializeJson(doc, payload); // Put the info from the payload into the JSON document
-		if (doc["state"]["desired"]["brightness_level"] != nullptr) {
-			brightness_level = doc["state"]["desired"]["brightness_level"];
-		}
 		if (doc["state"]["desired"]["mode"] != nullptr) {
 			// const char* the_mode = doc["state"]["desired"]["mode"];
 			// strcpy(mode, the_mode); // This is done this way because it crashes when assigning the value to a char* instead of a const char*
 			mode = doc["state"]["desired"]["mode"].as<String>();
 		}
+		// Get the brightness_level or use 150 if it's not specified
+		brightness_level = doc["state"]["desired"]["brightness_level"] | 150;
+		flicker_min_time = doc["state"]["desired"]["flicker_min_time"] | 30000;
+		flicker_max_time = doc["state"]["desired"]["flicker_max_time"] | 50000;
+		off_on_min_time = doc["state"]["desired"]["off_on_min_time"] | 60000;
+		off_on_max_time = doc["state"]["desired"]["off_on_max_time"] | 100000;
 	}
 	// ------------------------------------------------------------------//
 	// ----------------- RETRIEVING THE DELTA FROM AWS ------------------//
 	if (strcmp(topic, SHADOW_UPDATE_DELTA_TOPIC) == 0) {
 		deserializeJson(doc, payload); // Put the info from the payload into the JSON document
-		if (doc["state"]["brightness_level"] != nullptr) {
-			brightness_level = doc["state"]["brightness_level"];
-			analogWrite(LED, brightness_level);
-		}
 		if (doc["state"]["mode"] != nullptr) {
 			// const char* the_mode = doc["state"]["mode"];
 			// strcpy(mode, the_mode);
 			mode = doc["state"]["mode"].as<String>();
 		}
+		brightness_level = doc["state"]["brightness_level"] | 150;
+		flicker_min_time = doc["state"]["flicker_min_time"] | 30000;
+		flicker_max_time = doc["state"]["flicker_max_time"] | 50000;
+		off_on_min_time = doc["state"]["off_on_min_time"] | 60000;
+		off_on_max_time = doc["state"]["off_on_max_time"] | 100000;
 	}
 	// ------------------------------------------------------------------//
 
@@ -94,6 +105,10 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	doc.clear(); // Clear the JSON document so it can be used to publish the current state
 	doc["state"]["reported"]["brightness_level"] = brightness_level;
 	doc["state"]["reported"]["mode"] = mode;
+	doc["state"]["reported"]["flicker_min_time"] = flicker_min_time;
+	doc["state"]["reported"]["flicker_max_time"] = flicker_max_time;
+	doc["state"]["reported"]["off_on_min_time"] = off_on_min_time;
+	doc["state"]["reported"]["off_on_max_time"] = off_on_max_time;
 	char jsonBuffer[256];
 	serializeJsonPretty(doc, jsonBuffer);
 	Serial.println("Reporting the following to the shadow:");
@@ -130,7 +145,7 @@ void loop()
 	if (!client.connected()) {
 		reconnect(THINGNAME, "luz/status");
 	}
-	client.loop();
+	local_yield();
 	if (mode == "fixed") {
 		analogWrite(LED, brightness_level);
 	} else if (mode == "scary") {
@@ -139,13 +154,13 @@ void loop()
 			flicker_previousMillis = currentMillis;
 			Serial.println("The interval for flickering has passed");
 			flicker();
-			flicker_interval = random(30000, 40000);
+			flicker_interval = random(flicker_min_time, flicker_max_time);
 		}
 		if (currentMillis - off_on_previousMillis >= off_on_interval) {
 			off_on_previousMillis = currentMillis;
 			Serial.println("The interval for off_on has passed");
 			turn_off_on();
-			off_on_interval = random(70000, 90000);
+			off_on_interval = random(off_on_min_time, off_on_max_time);
 		}
 	}
 	delay(100);

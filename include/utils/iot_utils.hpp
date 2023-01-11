@@ -17,4 +17,5 @@ extern PubSubClient client;
 void connectAWS(const char* wifi_ssid, const char* wifi_password, const char* thingname, const char* aws_cert_ca, const char* aws_cert_crt, const char* aws_cert_private, const char* aws_cert_endpoint);
 void reconnect(const char* thingname, const char* aws_iot_publish_topic);
 void NTPConnect();
+void local_yield();
 #endif

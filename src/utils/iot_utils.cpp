@@ -84,3 +84,10 @@ void NTPConnect(void)
 	Serial.print("Current time: ");
 	Serial.print(asctime(&timeinfo));
 }
+
+void local_yield()
+// See https://sigmdel.ca/michel/program/esp8266/arduino/watchdogs_en.html
+{
+	yield();
+	client.loop();
+}
