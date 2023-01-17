@@ -1,5 +1,7 @@
+// Important note from the developer: Im sorry for this code, sometimes it gets awful, and does not follow any design pattern. Sorry
 #include "Arduino.h"
 #include "secrets/luz_secrets.h"
+#include "secrets/shared_secrets.h"
 #include "utils/iot_utils.hpp"
 #define SHADOW_GET_TOPIC "$aws/things/luz/shadow/get"
 #define SHADOW_GET_ACCEPTED_TOPIC "$aws/things/luz/shadow/get/accepted"

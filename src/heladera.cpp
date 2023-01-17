@@ -1,5 +1,6 @@
 #include "Arduino.h"
 #include "secrets/heladera_secrets.h"
+#include "secrets/shared_secrets.h"
 #include "utils/iot_utils.hpp"
 #include <Keypad.h>
 #define SHADOW_GET_TOPIC "$aws/things/heladera/shadow/get"
