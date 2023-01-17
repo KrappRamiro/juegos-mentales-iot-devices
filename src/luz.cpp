@@ -14,9 +14,8 @@
 #define DEFAULT_FLICKER_MAX_TIME 2000
 #define DEFAULT_OFF_ON_MIN_TIME 3000
 #define DEFAULT_OFF_ON_MAX_TIME 4000
-byte brightness_level = 150;
 int rn;
-String mode = "scary";
+String mode;
 unsigned long flicker_previousMillis = 0; // will store last time LED was updated
 unsigned long flicker_interval = 0; // interval at which to make scary light effects (milliseconds)
 unsigned long off_on_previousMillis = 0; // will store last time LED was updated
@@ -28,6 +27,7 @@ unsigned long off_on_max_time = DEFAULT_OFF_ON_MAX_TIME;
 bool should_process_mqtt = false;
 bool topic_was_delta = false;
 bool topic_was_get_accepted = false;
+bool first_time_config_from_shadow = false;
 StaticJsonDocument<1024> global_doc;
 
 struct BaseLight {
@@ -42,19 +42,6 @@ struct BaseLight {
 	void turn_off()
 	{
 		digitalWrite(PIN_N, LOW);
-	}
-	void flicker()
-	{
-		Serial.println("Flickering the light");
-		for (int i = 0; i < 60; i++) {
-			rn = random(DEFAULT_BRIGHTNESS_LEVEL / 4, DEFAULT_BRIGHTNESS_LEVEL);
-			set_white_light(rn);
-			local_yield();
-			ESP.wdtFeed();
-			delay(50);
-		}
-		set_white_light(DEFAULT_BRIGHTNESS_LEVEL);
-		Serial.println("Stopped flickering the light");
 	}
 };
 struct NormalLight : BaseLight {
@@ -86,9 +73,8 @@ struct RgbLight : BaseLight {
 	}
 
 private:
-	// i want to disable the PIN_N and brightness_level because the RGB Lights use multiple pins
+	// i want to disable the PIN_N because the RGB Lights use multiple pins
 	byte PIN_N;
-	byte brightness_level;
 };
 
 NormalLight normal_lights[NUMBER_OF_NORMAL_LIGHTS];
@@ -161,13 +147,44 @@ void turn_off_on()
 
 	Serial.println("Stopped turning off and on the light");
 }
-
+void flicker()
+{
+	Serial.println("Flickering the light");
+	for (int i = 0; i < 60; i++) {
+		rn = random(DEFAULT_BRIGHTNESS_LEVEL / 4, DEFAULT_BRIGHTNESS_LEVEL);
+		for (int j = 0; j < NUMBER_OF_NORMAL_LIGHTS; j++) {
+			if (normal_lights[j].has_to_flicker) {
+				normal_lights[j].set_white_light(rn);
+			}
+		}
+		for (int j = 0; j < NUMBER_OF_RGB_LIGHTS; j++) {
+			if (rgb_lights[j].has_to_flicker) {
+				rgb_lights[j].set_white_light(rn);
+			}
+		}
+		local_yield();
+		ESP.wdtFeed();
+		delay(50);
+	}
+	for (int j = 0; j < NUMBER_OF_NORMAL_LIGHTS; j++) {
+		if (normal_lights[j].has_to_flicker) {
+			normal_lights[j].set_white_light(normal_lights[j].brightness_level);
+		}
+	}
+	for (int j = 0; j < NUMBER_OF_RGB_LIGHTS; j++) {
+		if (rgb_lights[j].has_to_flicker) {
+			rgb_lights[j].set_white_light(rgb_lights[j].brightness_level);
+		}
+	}
+	Serial.println("Stopped flickering the light");
+}
 void report_state_to_shadow()
 {
 	StaticJsonDocument<2048> doc;
 	char jsonBuffer[2048];
 	JsonObject state_reported = doc["state"].createNestedObject("reported");
 
+	state_reported["mode"] = mode;
 	state_reported["flicker_min_time"] = flicker_min_time;
 	state_reported["flicker_max_time"] = flicker_max_time;
 	state_reported["off_on_min_time"] = off_on_min_time;
@@ -185,11 +202,13 @@ void report_state_to_shadow()
 	JsonArray state_reported_rgb_lights = state_reported.createNestedArray("rgb_lights");
 	JsonObject state_reported_rgb_lights_0 = state_reported_rgb_lights.createNestedObject();
 	state_reported_rgb_lights_0["has_to_flicker"] = rgb_lights[0].has_to_flicker;
+	state_reported_rgb_lights_0["brightness_level"] = rgb_lights[0].brightness_level;
 	state_reported_rgb_lights_0["brightness_level_red"] = rgb_lights[0].brightness_level_red;
 	state_reported_rgb_lights_0["brightness_level_blue_green"] = rgb_lights[0].brightness_level_blue_green;
 
 	JsonObject state_reported_rgb_lights_1 = state_reported_rgb_lights.createNestedObject();
 	state_reported_rgb_lights_1["has_to_flicker"] = rgb_lights[1].has_to_flicker;
+	state_reported_rgb_lights_1["brightness_level"] = rgb_lights[1].brightness_level;
 	state_reported_rgb_lights_1["brightness_level_red"] = rgb_lights[1].brightness_level_red;
 	state_reported_rgb_lights_1["brightness_level_blue_green"] = rgb_lights[1].brightness_level_blue_green;
 
@@ -222,6 +241,7 @@ void messageHandler(const char* topic, byte* payload, unsigned int length)
 		}
 		should_process_mqtt = true;
 		topic_was_get_accepted = true;
+		first_time_config_from_shadow = true;
 	}
 	// ------------------------------------------------------------------//
 
@@ -267,12 +287,6 @@ void setup()
 	rgb_lights[0].RED_PIN_N = D2;
 	rgb_lights[1].BLUE_GREEN_PIN_N = D1;
 	rgb_lights[1].RED_PIN_N = D0;
-
-	for (int i = 0; i < NUMBER_OF_NORMAL_LIGHTS; i++) {
-		Serial.println(normal_lights[i].type);
-		Serial.println(normal_lights[i].PIN_N);
-		Serial.println(normal_lights[i].brightness_level);
-	}
 	// --------------------------------------------------//
 }
 void loop()
@@ -282,19 +296,22 @@ void loop()
 		reconnect(THINGNAME, "luz/status");
 	}
 	client.loop();
+	while (!first_time_config_from_shadow) {
+		delay(1);
+		local_yield();
+	}
 	if (should_process_mqtt) {
 		int i = 0;
 		JsonObject state_desired;
 		if (topic_was_delta) {
 			state_desired = global_doc["state"];
 			topic_was_delta = false;
-			Serial.println("Topic was delta");
 		}
 		if (topic_was_get_accepted) {
 			state_desired = global_doc["state"]["desired"];
 			topic_was_get_accepted = false;
-			Serial.println("Topic was get accepted");
 		}
+		mode = state_desired["mode"].as<String>();
 		flicker_min_time = state_desired["flicker_min_time"];
 		flicker_max_time = state_desired["flicker_max_time"];
 		off_on_min_time = state_desired["off_on_min_time"];
@@ -307,6 +324,7 @@ void loop()
 		i = 0;
 		for (JsonObject rgb_light : state_desired["rgb_lights"].as<JsonArray>()) {
 			rgb_lights[i].has_to_flicker = rgb_light["has_to_flicker"]; // true, true
+			rgb_lights[i].brightness_level = rgb_light["brightness_level"];
 			rgb_lights[i].brightness_level_red = rgb_light["brightness_level_red"];
 			rgb_lights[i].brightness_level_blue_green = rgb_light["brightness_level_blue_green"];
 			i++;
@@ -319,13 +337,16 @@ void loop()
 	}
 
 	if (mode == "fixed") {
-		analogWrite(LED, DEFAULT_BRIGHTNESS_LEVEL);
+		normal_lights[0].set_white_light(normal_lights[0].brightness_level);
+		normal_lights[1].set_white_light(normal_lights[1].brightness_level);
+		rgb_lights[0].set_white_light(rgb_lights[0].brightness_level);
+		rgb_lights[1].set_white_light(rgb_lights[1].brightness_level);
 	} else if (mode == "scary") {
 		unsigned long currentMillis = millis();
 		if (currentMillis - flicker_previousMillis >= flicker_interval) {
 			flicker_previousMillis = currentMillis;
-			Serial.println("The interval for flickering has passed");
-			normal_lights[0].flicker(); // TODO: Change this
+			Serial.println(F("The interval for flickering has passed"));
+			flicker();
 			flicker_interval = random(flicker_min_time, flicker_max_time);
 		}
 		if (currentMillis - off_on_previousMillis >= off_on_interval) {
@@ -333,12 +354,12 @@ void loop()
 			Serial.println("The interval for off_on has passed");
 			turn_off_on();
 			off_on_interval = random(off_on_min_time, off_on_max_time);
-		} else if (mode == "panic") {
-			// TODO Implement this
-			Serial.println("we are in panic mode");
-			// turn off ILU (ilumination) lights
-			// turn of RED of RGB lights
 		}
+	} else if (mode == "panic") {
+		// TODO Implement this
+		Serial.println(F("we are in panic mode"));
+		// turn off ILU (ilumination) lights
+		// turn of RED of RGB lights
 	}
 	delay(100);
 }
