@@ -29,6 +29,7 @@ bool topic_was_delta = false;
 bool topic_was_get_accepted = false;
 bool first_time_config_from_shadow = false;
 byte fixed_brightness_level;
+byte off_on_brightness_level;
 StaticJsonDocument<1024> global_doc;
 
 class BaseLight {
@@ -112,12 +113,11 @@ void turn_off_on()
 
 	// ------------ START OF bajada de tension ------------------
 	for (int i = 0; i < 60; i++) {
+		rn = random(10, off_on_brightness_level - i / 2);
 		for (int j = 0; j < NUMBER_OF_NORMAL_LIGHTS; j++) {
-			rn = random(10, normal_lights_brightness_before_running[j] - i / 2);
 			normal_lights[j].set_brightness_level(rn);
 		}
 		for (int j = 0; j < NUMBER_OF_RGB_LIGHTS; j++) {
-			rn = random(10, rgb_lights_brightness_before_running[j] - i / 2);
 			rgb_lights[j].set_brightness_level(rn);
 		}
 		ESP.wdtFeed();
@@ -149,12 +149,11 @@ void turn_off_on()
 
 	// ------------ START OF reestablecer la luz de a poco ---------
 	for (int i = 0; i < 60; i++) {
+		rn = random(20, off_on_brightness_level);
 		for (int j = 0; j < NUMBER_OF_NORMAL_LIGHTS; j++) {
-			rn = random(20, normal_lights_brightness_before_running[j]);
 			normal_lights[j].set_brightness_level(rn);
 		}
 		for (int j = 0; j < NUMBER_OF_RGB_LIGHTS; j++) {
-			rn = random(20, rgb_lights_brightness_before_running[j]);
 			rgb_lights[j].set_brightness_level(rn);
 		}
 		ESP.wdtFeed();
@@ -189,7 +188,6 @@ void flicker()
 		for (int j = 0; j < NUMBER_OF_NORMAL_LIGHTS; j++) {
 			rn = random(normal_lights_brightness_before_running[j] / 4, normal_lights_brightness_before_running[j]);
 			if (normal_lights[j].has_to_flicker) {
-				Serial.println(rn);
 				normal_lights[j].set_brightness_level(rn);
 			}
 		}
@@ -228,6 +226,7 @@ void report_state_to_shadow()
 	state_reported["off_on_max_time"] = off_on_max_time;
 	state_reported["uv_light_brightness_level"] = uv_light.get_brightness_level();
 	state_reported["fixed_brightness_level"] = fixed_brightness_level;
+	state_reported["off_on_brightness_level"] = off_on_brightness_level;
 
 	JsonArray state_reported_led_lights = state_reported.createNestedArray("led_lights");
 	JsonObject state_reported_led_lights_0 = state_reported_led_lights.createNestedObject();
@@ -361,6 +360,7 @@ void loop()
 		off_on_min_time = state_desired["off_on_min_time"] | off_on_min_time;
 		off_on_max_time = state_desired["off_on_max_time"] | off_on_max_time;
 		fixed_brightness_level = state_desired["fixed_brightness_level"] | fixed_brightness_level;
+		off_on_brightness_level = state_desired["off_on_brightness_level"] | off_on_brightness_level;
 		uv_light.set_brightness_level(state_desired["uv_light_brightness_level"] | uv_light.get_brightness_level());
 		for (JsonObject led_light : state_desired["led_lights"].as<JsonArray>()) {
 			normal_lights[i].has_to_flicker = led_light["has_to_flicker"]; // true, true
