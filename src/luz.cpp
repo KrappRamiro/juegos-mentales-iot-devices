@@ -10,26 +10,28 @@
 #define NUMBER_OF_NORMAL_LIGHTS 2
 #define NUMBER_OF_RGB_LIGHTS 2
 #define DEFAULT_BRIGHTNESS_LEVEL 150
-#define DEFAULT_FLICKER_MIN_TIME 1000
-#define DEFAULT_FLICKER_MAX_TIME 2000
-#define DEFAULT_OFF_ON_MIN_TIME 3000
-#define DEFAULT_OFF_ON_MAX_TIME 4000
+#define DEFAULT_FLICKER_MIN_TIME 3000
+#define DEFAULT_FLICKER_MAX_TIME 5000
+#define DEFAULT_OFF_ON_MIN_TIME 15000
+#define DEFAULT_OFF_ON_MAX_TIME 30000
 int rn;
 String mode;
-unsigned long flicker_previousMillis = 0; // will store last time LED was updated
-unsigned long flicker_interval = 0; // interval at which to make scary light effects (milliseconds)
-unsigned long off_on_previousMillis = 0; // will store last time LED was updated
-unsigned long off_on_interval = 0; // interval at which to make scary light effects (milliseconds)
 unsigned long flicker_min_time = DEFAULT_FLICKER_MIN_TIME;
 unsigned long flicker_max_time = DEFAULT_FLICKER_MAX_TIME;
 unsigned long off_on_min_time = DEFAULT_OFF_ON_MIN_TIME;
 unsigned long off_on_max_time = DEFAULT_OFF_ON_MAX_TIME;
+unsigned long flicker_previousMillis = 0; // will store last time LED was updated
+unsigned long flicker_interval = random(DEFAULT_FLICKER_MIN_TIME, DEFAULT_FLICKER_MAX_TIME); // interval at which to make scary light effects (milliseconds)
+unsigned long off_on_previousMillis = 0; // will store last time LED was updated
+unsigned long off_on_interval = random(DEFAULT_OFF_ON_MIN_TIME, DEFAULT_OFF_ON_MAX_TIME); // interval at which to make scary light effects (milliseconds)
 bool should_process_mqtt = false;
 bool topic_was_delta = false;
 bool topic_was_get_accepted = false;
 bool first_time_config_from_shadow = false;
 byte fixed_brightness_level;
 byte off_on_brightness_level;
+bool uv_light_activate = false;
+bool uv_light_already_activated = false;
 StaticJsonDocument<1024> global_doc;
 
 class BaseLight {
@@ -61,6 +63,20 @@ public:
 class UVLight : public BaseLight {
 public:
 	String type = "uv";
+	bool active = false;
+	void flicker()
+	{
+		byte brightness_level_before_flickering = brightness_level;
+		Serial.println("Flickering the UV light");
+		for (int i = 0; i < 60; i++) {
+			rn = random(brightness_level_before_flickering / 4, brightness_level_before_flickering);
+			set_brightness_level(rn);
+			local_yield();
+			delay(50);
+		}
+		set_brightness_level(brightness_level_before_flickering);
+		Serial.println("Stopped flickering the UV light");
+	}
 };
 class RgbLight : public BaseLight {
 public:
@@ -108,6 +124,7 @@ void turn_off_on()
 		rgb_lights[0].get_brightness_level(),
 		rgb_lights[1].get_brightness_level()
 	};
+	byte uv_light_brightness_before_running = uv_light.get_brightness_level();
 	const unsigned long interval = random(3000, 7000); // interval at which to blink (milliseconds)
 	Serial.println("Turning off and on the light");
 
@@ -119,6 +136,9 @@ void turn_off_on()
 		}
 		for (int j = 0; j < NUMBER_OF_RGB_LIGHTS; j++) {
 			rgb_lights[j].set_brightness_level(rn);
+		}
+		if (uv_light.active) {
+			uv_light.set_brightness_level(rn);
 		}
 		ESP.wdtFeed();
 		local_yield();
@@ -133,6 +153,9 @@ void turn_off_on()
 	}
 	for (int i = 0; i < NUMBER_OF_RGB_LIGHTS; i++) {
 		rgb_lights[i].turn_off();
+	}
+	if (uv_light.active) {
+		uv_light.turn_off();
 	}
 	// Serial.println("Starting the millis phase");
 	// wait for some time (interval) to turn off the lights
@@ -156,6 +179,9 @@ void turn_off_on()
 		for (int j = 0; j < NUMBER_OF_RGB_LIGHTS; j++) {
 			rgb_lights[j].set_brightness_level(rn);
 		}
+		if (uv_light.active) {
+			uv_light.set_brightness_level(rn);
+		}
 		ESP.wdtFeed();
 		local_yield();
 		delay(50);
@@ -169,6 +195,7 @@ void turn_off_on()
 	for (int i = 0; i < NUMBER_OF_RGB_LIGHTS; i++) {
 		rgb_lights[i].set_brightness_level(rgb_lights_brightness_before_running[i]);
 	}
+	uv_light.set_brightness_level(uv_light_brightness_before_running);
 	// ------------ END OF reestablecer la luz totalmente ---------
 
 	Serial.println("Stopped turning off and on the light");
@@ -225,6 +252,7 @@ void report_state_to_shadow()
 	state_reported["off_on_min_time"] = off_on_min_time;
 	state_reported["off_on_max_time"] = off_on_max_time;
 	state_reported["uv_light_brightness_level"] = uv_light.get_brightness_level();
+	state_reported["uv_light_active"] = uv_light.active;
 	state_reported["fixed_brightness_level"] = fixed_brightness_level;
 	state_reported["off_on_brightness_level"] = off_on_brightness_level;
 
@@ -361,7 +389,12 @@ void loop()
 		off_on_max_time = state_desired["off_on_max_time"] | off_on_max_time;
 		fixed_brightness_level = state_desired["fixed_brightness_level"] | fixed_brightness_level;
 		off_on_brightness_level = state_desired["off_on_brightness_level"] | off_on_brightness_level;
+
 		uv_light.set_brightness_level(state_desired["uv_light_brightness_level"] | uv_light.get_brightness_level());
+		uv_light.active = state_desired["uv_light_active"] | false;
+		if (uv_light.active && !uv_light_already_activated) {
+			uv_light_activate = true;
+		}
 		for (JsonObject led_light : state_desired["led_lights"].as<JsonArray>()) {
 			normal_lights[i].has_to_flicker = led_light["has_to_flicker"]; // true, true
 			normal_lights[i].set_brightness_level(led_light["brightness_level"]); // 160, 160
@@ -380,30 +413,38 @@ void loop()
 		report_state_to_shadow();
 	}
 
+	if (uv_light_activate) {
+		uv_light.flicker();
+		uv_light_activate = false;
+		uv_light_already_activated = true;
+	}
+
 	if (mode == "fixed") {
+		// When the lights are off, the mode should be also fixed and with brightness levels of 0
 		normal_lights[0].set_brightness_level(fixed_brightness_level);
 		normal_lights[1].set_brightness_level(fixed_brightness_level);
 		rgb_lights[0].set_brightness_level(fixed_brightness_level);
 		rgb_lights[1].set_brightness_level(fixed_brightness_level);
 	} else if (mode == "scary") {
-		unsigned long currentMillis = millis();
-		if (currentMillis - flicker_previousMillis >= flicker_interval) {
-			flicker_previousMillis = currentMillis;
+		unsigned long startMillis = millis();
+		if (startMillis - flicker_previousMillis >= flicker_interval) {
+			flicker_previousMillis = startMillis;
 			Serial.println(F("The interval for flickering has passed"));
 			flicker();
 			flicker_interval = random(flicker_min_time, flicker_max_time);
 		}
-		if (currentMillis - off_on_previousMillis >= off_on_interval) {
-			off_on_previousMillis = currentMillis;
+		if (startMillis - off_on_previousMillis >= off_on_interval) {
+			off_on_previousMillis = startMillis;
 			Serial.println("The interval for off_on has passed");
 			turn_off_on();
 			off_on_interval = random(off_on_min_time, off_on_max_time);
 		}
 	} else if (mode == "panic") {
-		// TODO Implement this
 		Serial.println(F("we are in panic mode"));
-		// turn off ILU (ilumination) lights
-		// turn of RED of RGB lights
+		normal_lights[0].turn_off();
+		normal_lights[1].turn_off();
+		rgb_lights[0].set_red_light(255);
+		rgb_lights[1].set_red_light(255);
 	}
 	delay(100);
 }
