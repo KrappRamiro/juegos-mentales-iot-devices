@@ -88,7 +88,18 @@ void NTPConnect(void)
 void local_yield()
 // See https://sigmdel.ca/michel/program/esp8266/arduino/watchdogs_en.html
 {
-	ESP.wdtFeed(); // dont try to use yield(), for some weird reason it just stops the ESP8266 from working.
+	ESP.wdtFeed();
 	yield();
 	client.loop();
+}
+
+void local_delay(unsigned long millisecs)
+{
+	unsigned long start = millis();
+	local_yield();
+	if (millisecs > 0) {
+		while (millis() < millisecs + start) {
+			local_yield();
+		}
+	}
 }

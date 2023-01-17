@@ -28,53 +28,69 @@ bool should_process_mqtt = false;
 bool topic_was_delta = false;
 bool topic_was_get_accepted = false;
 bool first_time_config_from_shadow = false;
+byte fixed_brightness_level;
 StaticJsonDocument<1024> global_doc;
 
-struct BaseLight {
+class BaseLight {
+public:
 	String type = "base";
 	bool has_to_flicker = false;
 	byte PIN_N;
-	byte brightness_level = DEFAULT_BRIGHTNESS_LEVEL;
-	void set_white_light(byte brightness_level)
-	{
-		analogWrite(PIN_N, brightness_level);
-	}
 	void turn_off()
 	{
 		digitalWrite(PIN_N, LOW);
 	}
+	void set_brightness_level(byte brightness_level)
+	{
+		this->brightness_level = brightness_level;
+		analogWrite(PIN_N, brightness_level);
+	}
+	byte get_brightness_level()
+	{
+		return this->brightness_level;
+	}
+
+protected:
+	byte brightness_level = DEFAULT_BRIGHTNESS_LEVEL;
 };
-struct NormalLight : BaseLight {
+class NormalLight : public BaseLight { // Why use public here? See public inheritance https://stackoverflow.com/a/49804797/15965186
+public:
 	String type = "normal";
 };
-struct UVLight : BaseLight {
+class UVLight : public BaseLight {
+public:
 	String type = "uv";
 };
-struct RgbLight : BaseLight {
+class RgbLight : public BaseLight {
+public:
 	String type = "rgb";
 	byte RED_PIN_N;
 	byte BLUE_GREEN_PIN_N;
-	byte brightness_level_red;
-	byte brightness_level_blue_green;
-	void set_white_light(byte brightness_level)
+	void set_brightness_level(byte brightness_level)
 	{
+		this->brightness_level = brightness_level;
 		analogWrite(RED_PIN_N, brightness_level);
 		analogWrite(BLUE_GREEN_PIN_N, brightness_level);
 	}
 	void set_red_light(byte brightness_level)
 	{
+		this->brightness_level_red = brightness_level;
+		this->brightness_level_blue_green = 0;
 		analogWrite(RED_PIN_N, brightness_level);
 		digitalWrite(BLUE_GREEN_PIN_N, LOW);
 	}
 	void turn_off()
 	{
+		this->brightness_level_red = 0;
+		this->brightness_level_blue_green = 0;
 		digitalWrite(RED_PIN_N, LOW);
 		digitalWrite(BLUE_GREEN_PIN_N, LOW);
 	}
 
 private:
-	// i want to disable the PIN_N because the RGB Lights use multiple pins
-	byte PIN_N;
+	byte brightness_level_red;
+	byte brightness_level_blue_green;
+	byte PIN_N; // i want to disable the PIN_N because the RGB Lights use multiple pins
 };
 
 NormalLight normal_lights[NUMBER_OF_NORMAL_LIGHTS];
@@ -82,6 +98,14 @@ RgbLight rgb_lights[NUMBER_OF_RGB_LIGHTS];
 UVLight uv_light;
 void turn_off_on()
 {
+	byte normal_lights_brightness_before_running[NUMBER_OF_NORMAL_LIGHTS] = {
+		normal_lights[0].get_brightness_level(),
+		normal_lights[1].get_brightness_level()
+	};
+	byte rgb_lights_brightness_before_running[NUMBER_OF_RGB_LIGHTS] = {
+		rgb_lights[0].get_brightness_level(),
+		rgb_lights[1].get_brightness_level()
+	};
 	const unsigned long interval = random(3000, 7000); // interval at which to blink (milliseconds)
 	Serial.println("Turning off and on the light");
 
@@ -89,10 +113,10 @@ void turn_off_on()
 	for (int i = 0; i < 60; i++) {
 		rn = random(10, DEFAULT_BRIGHTNESS_LEVEL - i / 2);
 		for (int i = 0; i < NUMBER_OF_NORMAL_LIGHTS; i++) {
-			normal_lights[i].set_white_light(rn);
+			normal_lights[i].set_brightness_level(rn);
 		}
 		for (int i = 0; i < NUMBER_OF_RGB_LIGHTS; i++) {
-			rgb_lights[i].set_white_light(rn);
+			rgb_lights[i].set_brightness_level(rn);
 		}
 		ESP.wdtFeed();
 		local_yield();
@@ -125,10 +149,10 @@ void turn_off_on()
 	for (int i = 0; i < 60; i++) {
 		rn = random(20, DEFAULT_BRIGHTNESS_LEVEL);
 		for (int i = 0; i < NUMBER_OF_NORMAL_LIGHTS; i++) {
-			normal_lights[i].set_white_light(rn);
+			normal_lights[i].set_brightness_level(rn);
 		}
 		for (int i = 0; i < NUMBER_OF_RGB_LIGHTS; i++) {
-			rgb_lights[i].set_white_light(rn);
+			rgb_lights[i].set_brightness_level(rn);
 		}
 		ESP.wdtFeed();
 		local_yield();
@@ -138,10 +162,10 @@ void turn_off_on()
 
 	// ------------ START OF reestablecer la luz totalmente ---------
 	for (int i = 0; i < NUMBER_OF_NORMAL_LIGHTS; i++) {
-		normal_lights[i].set_white_light(normal_lights[i].brightness_level);
+		normal_lights[i].set_brightness_level(normal_lights_brightness_before_running[i]);
 	}
 	for (int i = 0; i < NUMBER_OF_RGB_LIGHTS; i++) {
-		rgb_lights[i].set_white_light(DEFAULT_BRIGHTNESS_LEVEL);
+		rgb_lights[i].set_brightness_level(rgb_lights_brightness_before_running[i]);
 	}
 	// ------------ END OF reestablecer la luz totalmente ---------
 
@@ -149,31 +173,39 @@ void turn_off_on()
 }
 void flicker()
 {
+	byte normal_lights_brightness_before_running[NUMBER_OF_NORMAL_LIGHTS] = {
+		normal_lights[0].get_brightness_level(),
+		normal_lights[1].get_brightness_level()
+	};
+	byte rgb_lights_brightness_before_running[NUMBER_OF_RGB_LIGHTS] = {
+		rgb_lights[0].get_brightness_level(),
+		rgb_lights[1].get_brightness_level()
+	};
 	Serial.println("Flickering the light");
 	for (int i = 0; i < 60; i++) {
 		rn = random(DEFAULT_BRIGHTNESS_LEVEL / 4, DEFAULT_BRIGHTNESS_LEVEL);
 		for (int j = 0; j < NUMBER_OF_NORMAL_LIGHTS; j++) {
 			if (normal_lights[j].has_to_flicker) {
-				normal_lights[j].set_white_light(rn);
+				normal_lights[j].set_brightness_level(rn);
 			}
 		}
 		for (int j = 0; j < NUMBER_OF_RGB_LIGHTS; j++) {
 			if (rgb_lights[j].has_to_flicker) {
-				rgb_lights[j].set_white_light(rn);
+				rgb_lights[j].set_brightness_level(rn);
 			}
 		}
 		local_yield();
 		ESP.wdtFeed();
 		delay(50);
 	}
-	for (int j = 0; j < NUMBER_OF_NORMAL_LIGHTS; j++) {
-		if (normal_lights[j].has_to_flicker) {
-			normal_lights[j].set_white_light(normal_lights[j].brightness_level);
+	for (int i = 0; i < NUMBER_OF_NORMAL_LIGHTS; i++) {
+		if (normal_lights[i].has_to_flicker) {
+			normal_lights[i].set_brightness_level(normal_lights_brightness_before_running[i]);
 		}
 	}
-	for (int j = 0; j < NUMBER_OF_RGB_LIGHTS; j++) {
-		if (rgb_lights[j].has_to_flicker) {
-			rgb_lights[j].set_white_light(rgb_lights[j].brightness_level);
+	for (int i = 0; i < NUMBER_OF_RGB_LIGHTS; i++) {
+		if (rgb_lights[i].has_to_flicker) {
+			rgb_lights[i].set_brightness_level(rgb_lights_brightness_before_running[i]);
 		}
 	}
 	Serial.println("Stopped flickering the light");
@@ -189,28 +221,26 @@ void report_state_to_shadow()
 	state_reported["flicker_max_time"] = flicker_max_time;
 	state_reported["off_on_min_time"] = off_on_min_time;
 	state_reported["off_on_max_time"] = off_on_max_time;
+	state_reported["uv_light_brightness_level"] = uv_light.get_brightness_level();
+	state_reported["fixed_brightness_level"] = fixed_brightness_level;
 
 	JsonArray state_reported_led_lights = state_reported.createNestedArray("led_lights");
 	JsonObject state_reported_led_lights_0 = state_reported_led_lights.createNestedObject();
 	state_reported_led_lights_0["has_to_flicker"] = normal_lights[0].has_to_flicker;
-	state_reported_led_lights_0["brightness_level"] = normal_lights[0].brightness_level;
+	state_reported_led_lights_0["brightness_level"] = normal_lights[0].get_brightness_level();
 
 	JsonObject state_reported_led_lights_1 = state_reported_led_lights.createNestedObject();
 	state_reported_led_lights_1["has_to_flicker"] = normal_lights[1].has_to_flicker;
-	state_reported_led_lights_1["brightness_level"] = normal_lights[1].brightness_level;
+	state_reported_led_lights_1["brightness_level"] = normal_lights[1].get_brightness_level();
 
 	JsonArray state_reported_rgb_lights = state_reported.createNestedArray("rgb_lights");
 	JsonObject state_reported_rgb_lights_0 = state_reported_rgb_lights.createNestedObject();
 	state_reported_rgb_lights_0["has_to_flicker"] = rgb_lights[0].has_to_flicker;
-	state_reported_rgb_lights_0["brightness_level"] = rgb_lights[0].brightness_level;
-	state_reported_rgb_lights_0["brightness_level_red"] = rgb_lights[0].brightness_level_red;
-	state_reported_rgb_lights_0["brightness_level_blue_green"] = rgb_lights[0].brightness_level_blue_green;
+	state_reported_rgb_lights_0["brightness_level"] = rgb_lights[0].get_brightness_level();
 
 	JsonObject state_reported_rgb_lights_1 = state_reported_rgb_lights.createNestedObject();
 	state_reported_rgb_lights_1["has_to_flicker"] = rgb_lights[1].has_to_flicker;
-	state_reported_rgb_lights_1["brightness_level"] = rgb_lights[1].brightness_level;
-	state_reported_rgb_lights_1["brightness_level_red"] = rgb_lights[1].brightness_level_red;
-	state_reported_rgb_lights_1["brightness_level_blue_green"] = rgb_lights[1].brightness_level_blue_green;
+	state_reported_rgb_lights_1["brightness_level"] = rgb_lights[1].get_brightness_level();
 
 	serializeJsonPretty(doc, jsonBuffer);
 	Serial.println("Reporting the following to the shadow:");
@@ -297,8 +327,15 @@ void loop()
 	}
 	client.loop();
 	while (!first_time_config_from_shadow) {
-		delay(1);
-		local_yield();
+		Serial.println(F("Waiting until we get the shadow document from AWS"));
+		while (1) {
+			Serial.print(F("."));
+			local_delay(150);
+			if (first_time_config_from_shadow) {
+				Serial.println(F("Got the shadow document, starting to run!!!"));
+				break;
+			}
+		}
 	}
 	if (should_process_mqtt) {
 		int i = 0;
@@ -311,22 +348,24 @@ void loop()
 			state_desired = global_doc["state"]["desired"];
 			topic_was_get_accepted = false;
 		}
-		mode = state_desired["mode"].as<String>();
-		flicker_min_time = state_desired["flicker_min_time"];
-		flicker_max_time = state_desired["flicker_max_time"];
-		off_on_min_time = state_desired["off_on_min_time"];
-		off_on_max_time = state_desired["off_on_max_time"];
+		if (state_desired["mode"] != nullptr) {
+			mode = state_desired["mode"].as<String>();
+		}
+		flicker_min_time = state_desired["flicker_min_time"] | flicker_min_time;
+		flicker_max_time = state_desired["flicker_max_time"] | flicker_max_time;
+		off_on_min_time = state_desired["off_on_min_time"] | off_on_min_time;
+		off_on_max_time = state_desired["off_on_max_time"] | off_on_max_time;
+		fixed_brightness_level = state_desired["fixed_brightness_level"] | fixed_brightness_level;
+		uv_light.set_brightness_level(state_desired["uv_light_brightness_level"] | uv_light.get_brightness_level());
 		for (JsonObject led_light : state_desired["led_lights"].as<JsonArray>()) {
 			normal_lights[i].has_to_flicker = led_light["has_to_flicker"]; // true, true
-			normal_lights[i].brightness_level = led_light["brightness_level"]; // 160, 160
+			normal_lights[i].set_brightness_level(led_light["brightness_level"]); // 160, 160
 			i++;
 		}
 		i = 0;
 		for (JsonObject rgb_light : state_desired["rgb_lights"].as<JsonArray>()) {
 			rgb_lights[i].has_to_flicker = rgb_light["has_to_flicker"]; // true, true
-			rgb_lights[i].brightness_level = rgb_light["brightness_level"];
-			rgb_lights[i].brightness_level_red = rgb_light["brightness_level_red"];
-			rgb_lights[i].brightness_level_blue_green = rgb_light["brightness_level_blue_green"];
+			rgb_lights[i].set_brightness_level(rgb_light["brightness_level"]);
 			i++;
 		}
 		i = 0;
@@ -337,10 +376,10 @@ void loop()
 	}
 
 	if (mode == "fixed") {
-		normal_lights[0].set_white_light(normal_lights[0].brightness_level);
-		normal_lights[1].set_white_light(normal_lights[1].brightness_level);
-		rgb_lights[0].set_white_light(rgb_lights[0].brightness_level);
-		rgb_lights[1].set_white_light(rgb_lights[1].brightness_level);
+		normal_lights[0].set_brightness_level(fixed_brightness_level);
+		normal_lights[1].set_brightness_level(fixed_brightness_level);
+		rgb_lights[0].set_brightness_level(fixed_brightness_level);
+		rgb_lights[1].set_brightness_level(fixed_brightness_level);
 	} else if (mode == "scary") {
 		unsigned long currentMillis = millis();
 		if (currentMillis - flicker_previousMillis >= flicker_interval) {

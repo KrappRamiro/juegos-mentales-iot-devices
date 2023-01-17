@@ -18,4 +18,5 @@ void connectAWS(const char* wifi_ssid, const char* wifi_password, const char* th
 void reconnect(const char* thingname, const char* aws_iot_publish_topic);
 void NTPConnect();
 void local_yield();
+void local_delay(unsigned long millisecs);
 #endif
