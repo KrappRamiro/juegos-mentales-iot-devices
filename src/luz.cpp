@@ -6,7 +6,7 @@
 #define SHADOW_UPDATE_TOPIC "$aws/things/luz/shadow/update"
 #define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/luz/shadow/update/accepted"
 #define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/luz/shadow/update/delta"
-#define LED D8
+#define SWITCH_PIN D7
 #define NUMBER_OF_NORMAL_LIGHTS 2
 #define NUMBER_OF_RGB_LIGHTS 2
 #define DEFAULT_BRIGHTNESS_LEVEL 150
@@ -32,6 +32,7 @@ byte fixed_brightness_level;
 byte off_on_brightness_level;
 bool uv_light_activate = false;
 bool uv_light_already_activated = false;
+bool switch_status = false;
 StaticJsonDocument<1024> global_doc;
 
 class BaseLight {
@@ -255,6 +256,7 @@ void report_state_to_shadow()
 	state_reported["uv_light_active"] = uv_light.active;
 	state_reported["fixed_brightness_level"] = fixed_brightness_level;
 	state_reported["off_on_brightness_level"] = off_on_brightness_level;
+	state_reported["switch_status"] = switch_status;
 
 	JsonArray state_reported_led_lights = state_reported.createNestedArray("led_lights");
 	JsonObject state_reported_led_lights_0 = state_reported_led_lights.createNestedObject();
@@ -328,12 +330,10 @@ void setup()
 	Serial.begin(115200);
 	ESP.wdtDisable();
 	ESP.wdtEnable(10000);
-	pinMode(LED, OUTPUT);
 	connectAWS(WIFI_SSID, WIFI_PASSWORD, THINGNAME, AWS_CERT_CA, AWS_CERT_CRT, AWS_CERT_PRIVATE, AWS_IOT_ENDPOINT); // Connect to AWS
 	client.subscribe(SHADOW_GET_ACCEPTED_TOPIC, 1); // Subscribe to the topic that gets the initial state
 	client.subscribe(SHADOW_UPDATE_DELTA_TOPIC, 1); // Subscribe to the topic that updates the state every time it changes
 	client.setCallback(messageHandler);
-	pinMode(LED, OUTPUT);
 	// ----------- Get the Shadow document --------------//
 	StaticJsonDocument<8> doc;
 	char jsonBuffer[8];
@@ -349,6 +349,7 @@ void setup()
 	rgb_lights[0].RED_PIN_N = D2;
 	rgb_lights[1].BLUE_GREEN_PIN_N = D1;
 	rgb_lights[1].RED_PIN_N = D0;
+	pinMode(SWITCH_PIN, INPUT);
 	// --------------------------------------------------//
 }
 void loop()
@@ -418,6 +419,15 @@ void loop()
 		uv_light_activate = false;
 		uv_light_already_activated = true;
 	}
+	if (digitalRead(SWITCH_PIN) == HIGH) {
+		Serial.println(F("Detected the switch"));
+		if (switch_status)
+			switch_status = false;
+		else
+			switch_status = true;
+		report_state_to_shadow();
+		local_delay(300); // I delay it a little bit so the player cant turn it on-off by holding the switch
+	}
 
 	if (mode == "fixed") {
 		// When the lights are off, the mode should be also fixed and with brightness levels of 0
@@ -440,7 +450,6 @@ void loop()
 			off_on_interval = random(off_on_min_time, off_on_max_time);
 		}
 	} else if (mode == "panic") {
-		Serial.println(F("we are in panic mode"));
 		normal_lights[0].turn_off();
 		normal_lights[1].turn_off();
 		rgb_lights[0].set_red_light(255);
