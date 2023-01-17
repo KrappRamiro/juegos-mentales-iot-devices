@@ -98,6 +98,7 @@ RgbLight rgb_lights[NUMBER_OF_RGB_LIGHTS];
 UVLight uv_light;
 void turn_off_on()
 {
+	// Important info: Change "normal_lights_brightness_before_running" to DEFAULT_BRIGHTNESS_LEVEL to get a different styling
 	byte normal_lights_brightness_before_running[NUMBER_OF_NORMAL_LIGHTS] = {
 		normal_lights[0].get_brightness_level(),
 		normal_lights[1].get_brightness_level()
@@ -111,12 +112,13 @@ void turn_off_on()
 
 	// ------------ START OF bajada de tension ------------------
 	for (int i = 0; i < 60; i++) {
-		rn = random(10, DEFAULT_BRIGHTNESS_LEVEL - i / 2);
-		for (int i = 0; i < NUMBER_OF_NORMAL_LIGHTS; i++) {
-			normal_lights[i].set_brightness_level(rn);
+		for (int j = 0; j < NUMBER_OF_NORMAL_LIGHTS; j++) {
+			rn = random(10, normal_lights_brightness_before_running[j] - i / 2);
+			normal_lights[j].set_brightness_level(rn);
 		}
-		for (int i = 0; i < NUMBER_OF_RGB_LIGHTS; i++) {
-			rgb_lights[i].set_brightness_level(rn);
+		for (int j = 0; j < NUMBER_OF_RGB_LIGHTS; j++) {
+			rn = random(10, rgb_lights_brightness_before_running[j] - i / 2);
+			rgb_lights[j].set_brightness_level(rn);
 		}
 		ESP.wdtFeed();
 		local_yield();
@@ -147,12 +149,13 @@ void turn_off_on()
 
 	// ------------ START OF reestablecer la luz de a poco ---------
 	for (int i = 0; i < 60; i++) {
-		rn = random(20, DEFAULT_BRIGHTNESS_LEVEL);
-		for (int i = 0; i < NUMBER_OF_NORMAL_LIGHTS; i++) {
-			normal_lights[i].set_brightness_level(rn);
+		for (int j = 0; j < NUMBER_OF_NORMAL_LIGHTS; j++) {
+			rn = random(20, normal_lights_brightness_before_running[j]);
+			normal_lights[j].set_brightness_level(rn);
 		}
-		for (int i = 0; i < NUMBER_OF_RGB_LIGHTS; i++) {
-			rgb_lights[i].set_brightness_level(rn);
+		for (int j = 0; j < NUMBER_OF_RGB_LIGHTS; j++) {
+			rn = random(20, rgb_lights_brightness_before_running[j]);
+			rgb_lights[j].set_brightness_level(rn);
 		}
 		ESP.wdtFeed();
 		local_yield();
@@ -183,13 +186,15 @@ void flicker()
 	};
 	Serial.println("Flickering the light");
 	for (int i = 0; i < 60; i++) {
-		rn = random(DEFAULT_BRIGHTNESS_LEVEL / 4, DEFAULT_BRIGHTNESS_LEVEL);
 		for (int j = 0; j < NUMBER_OF_NORMAL_LIGHTS; j++) {
+			rn = random(normal_lights_brightness_before_running[j] / 4, normal_lights_brightness_before_running[j]);
 			if (normal_lights[j].has_to_flicker) {
+				Serial.println(rn);
 				normal_lights[j].set_brightness_level(rn);
 			}
 		}
 		for (int j = 0; j < NUMBER_OF_RGB_LIGHTS; j++) {
+			rn = random(rgb_lights_brightness_before_running[j] / 4, rgb_lights_brightness_before_running[j]);
 			if (rgb_lights[j].has_to_flicker) {
 				rgb_lights[j].set_brightness_level(rn);
 			}
