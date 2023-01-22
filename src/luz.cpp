@@ -421,7 +421,8 @@ void loop()
 		uv_light_activate = false;
 		uv_light_already_activated = true;
 	}
-	if (digitalRead(SWITCH_PIN) == HIGH) {
+	// if (digitalRead(SWITCH_PIN) == HIGH) { //HACK Uncomment this when uploading to the real board
+	if (0) {
 		Serial.println(F("Detected the switch"));
 		if (switch_status)
 			switch_status = false;

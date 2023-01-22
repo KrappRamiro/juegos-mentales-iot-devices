@@ -1,12 +1,12 @@
-#include "secrets/especiero_secrets.h"
 #include "secrets/shared_secrets.h"
+#include "secrets/tablero_herramientas_secrets.h"
 #include "utils/iot_utils.hpp"
 #include "utils/multiple_rfid_utils.hpp"
-#define SHADOW_GET_TOPIC "$aws/things/especiero/shadow/get"
-#define SHADOW_GET_ACCEPTED_TOPIC "$aws/things/especiero/shadow/get/accepted"
-#define SHADOW_UPDATE_TOPIC "$aws/things/especiero/shadow/update"
-#define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/especiero/shadow/update/accepted"
-#define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/especiero/shadow/update/delta"
+#define SHADOW_GET_TOPIC "$aws/things/tablero_herramientas/shadow/get"
+#define SHADOW_GET_ACCEPTED_TOPIC "$aws/things/tablero_herramientas/shadow/get/accepted"
+#define SHADOW_UPDATE_TOPIC "$aws/things/tablero_herramientas/shadow/update"
+#define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/tablero_herramientas/shadow/update/accepted"
+#define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/tablero_herramientas/shadow/update/delta"
 String lastPub[NUMBER_OF_READERS]; // should be in the mixin
 bool should_publish;
 
@@ -43,7 +43,7 @@ void loop()
 {
 	now = time(nullptr);
 	if (!client.connected()) {
-		reconnect(THINGNAME, "especiero/status");
+		reconnect(THINGNAME, "tablero_herramientas/status");
 	}
 	client.loop();
 	printMultipleRFID();
