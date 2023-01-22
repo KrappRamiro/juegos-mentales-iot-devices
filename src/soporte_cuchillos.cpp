@@ -16,7 +16,7 @@ void report_state_to_shadow()
 	StaticJsonDocument<256> doc;
 	char jsonBuffer[256];
 	JsonObject state_reported = doc["state"].createNestedObject("reported");
-	state_reported["button"] = button_state;
+	state_reported["estado_switch"] = button_state;
 	serializeJsonPretty(doc, jsonBuffer);
 	Serial.println("Reporting the following to the shadow:");
 	Serial.println(jsonBuffer);
