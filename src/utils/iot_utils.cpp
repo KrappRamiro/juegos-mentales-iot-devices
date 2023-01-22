@@ -9,7 +9,7 @@ void connectAWS(const char* wifi_ssid, const char* wifi_password, const char* th
 	// Connect to wifi
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(wifi_ssid, wifi_password);
-	Serial.println("Connecting to Wi-Fi");
+	Serial.printf("Connecting to Wi-Fi %s\n", wifi_ssid);
 	while (WiFi.status() != WL_CONNECTED) {
 		delay(500);
 		Serial.print(".");
