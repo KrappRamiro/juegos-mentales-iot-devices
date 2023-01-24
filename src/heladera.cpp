@@ -66,8 +66,8 @@ void publishMessage(const char* topic, char myKey = ' ')
 	if (strcmp(topic, "heladera/teclado") == 0) {
 		String myKeyStr = String(myKey);
 		Serial.printf("Message publishing started for the topic %s\n", topic);
-		StaticJsonDocument<200> doc;
-		char jsonBuffer[200];
+		StaticJsonDocument<50> doc;
+		char jsonBuffer[50];
 		doc["key"] = myKeyStr;
 		serializeJson(doc, jsonBuffer);
 		result = (client.publish("heladera/teclado", jsonBuffer)) ? "success publishing" : "failed publishing";
@@ -108,5 +108,5 @@ void loop()
 		Serial.println(myKey);
 		publishMessage("heladera/teclado", myKey); // Publish the pressed key to AWS
 	}
-	delay(100);
+	local_delay(30);
 }

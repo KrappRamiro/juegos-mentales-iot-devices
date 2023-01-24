@@ -1,4 +1,7 @@
 #include "utils/iot_utils.hpp"
+#ifdef ESP32
+#include "soc/rtc_wdt.h"
+#endif
 time_t now;
 time_t nowish = 1510592825;
 // The reason why net and client are both in the header and in the source: https://stackoverflow.com/questions/74729454/platformio-c-multiple-multiple-definition-of
@@ -7,19 +10,22 @@ PubSubClient client(net);
 void connectAWS(const char* wifi_ssid, const char* wifi_password, const char* thingname, const char* aws_cert_ca, const char* aws_cert_crt, const char* aws_cert_private, const char* aws_cert_endpoint)
 {
 	// Connect to wifi
+	Serial.printf("Connecting to Wi-Fi %s\n", wifi_ssid);
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(wifi_ssid, wifi_password);
-	Serial.printf("Connecting to Wi-Fi %s\n", wifi_ssid);
 	while (WiFi.status() != WL_CONNECTED) {
 		delay(500);
 		Serial.print(".");
 	}
 	// Configure WiFiClientSecure to use the AWS IoT device credentials
 #ifdef ESP32
+	Serial.println("Using ESP32 config for aws connection");
+	NTPConnect();
 	net.setCACert(aws_cert_ca);
 	net.setCertificate(aws_cert_crt);
 	net.setPrivateKey(aws_cert_private);
 #elif defined(ESP8266)
+	Serial.println("Using ESP8266 config for aws connection");
 	NTPConnect();
 	// See https://how2electronics.com/connecting-esp8266-to-amazon-aws-iot-core-using-mqtt/
 	BearSSL::X509List cert(aws_cert_ca);
@@ -88,7 +94,12 @@ void NTPConnect(void)
 void local_yield()
 // See https://sigmdel.ca/michel/program/esp8266/arduino/watchdogs_en.html
 {
+#ifdef ESP32
+
+//	rtc_wdt_feed();
+#elif defined(ESP8266)
 	ESP.wdtFeed();
+#endif
 	yield();
 	client.loop();
 }
