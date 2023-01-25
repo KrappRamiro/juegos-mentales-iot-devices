@@ -120,9 +120,9 @@ void setup()
 	}
 	atenuadores[0].min = 1800;
 	atenuadores[0].max = 2200;
+	atenuadores[1].min = 1200;
+	atenuadores[1].max = 1600;
 	client.subscribe(SHADOW_GET_ACCEPTED_TOPIC, 1); // Subscribe to the topic that gets the initial state
-	client.subscribe(SHADOW_UPDATE_DELTA_TOPIC, 1); // Subscribe to the topic that updates the state every time it changes
-	client.setCallback(messageHandler);
 	client.subscribe(SHADOW_UPDATE_DELTA_TOPIC, 1); // Subscribe to the topic that updates the state every time it changes
 	client.setCallback(messageHandler);
 }
