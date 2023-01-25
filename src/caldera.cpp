@@ -8,43 +8,34 @@
 #define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/caldera/shadow/update/accepted"
 #define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/caldera/shadow/update/delta"
 
-///////////////////////////////////////////////////////
-///////////////////////////////////////////////////////
-/////////////////      README       ///////////////////
-// THIS CODE NEEDS TO BE REDONE TO SUPPORT MULTIPLEXERS
-///////////////////////////////////////////////////////
-///////////////////////////////////////////////////////
-
 #define THRESHOLD 1500
-#define N_LLAVES_PASO 4
+#define N_SENSORES_PROXIMIDAD 4
 #define N_ATENUADORES 2
 #define N_INTERRUPTORES 10
-#define N_BOTONES 9
-#define PIN_ELECTROIMAN_CALDERA 23 // TODO: Definir esto con barla
-#define PIN_ELECTROIMAN_TABLERO 22 // TODO: Definir esto con barla
 
-int pines_proximidad[] = {
+#define PIN_ELECTROIMAN_CALDERA 25
+#define PIN_ELECTROIMAN_TABLERO 26
+#define PIN_BOTONES 15 // Metimos logica combinacional porque no nos daba la cantidad de puertos GPIO
+int pines_proximidad[N_SENSORES_PROXIMIDAD] = {
 	36, 39, 34, 35 // pines ADC1
 };
-int pines_atenuador[] = {
+int pines_atenuadores[N_ATENUADORES] = {
 	32, 33 // pines ADC1
 };
-int pines_interruptores[] = {
-	// 25,26,27 --> MUX pins
-	// 14,13 -----> Normal pins
-	25, 26, 27, 14, 13
-};
-int pines_botones[] = {
-	// 21, 19, 18 ---> MUX pins
-	// 5 ------------> Normal pins
-	21, 19, 18, 5
+int pines_interruptores[N_INTERRUPTORES] = {
+	23, 22, 21, 19, 18, 5, 17, 16, 4, 2
 };
 
-bool estado_electroiman = true;
+bool should_publish = false;
+bool estado_electroiman_caldera = true; // TODO: Implementar esto
+bool estado_electroiman_tablero = true;
+
 struct Sensor {
-	int nivel;
+	int lectura; // WARNING: Only use for ANALOG READINGS, for digitalReadings, use actual
 	bool actual;
 	bool previous;
+	int min; // WARNING: Only use for atenuadores
+	int max; // WARNING: Only use for atenuadores
 	bool state_changed()
 	{
 		return actual != previous;
@@ -53,8 +44,37 @@ struct Sensor {
 	{
 		previous = actual;
 	}
-} sensores_proximidad[4], atenuadores[2], interruptores[10];
+} sensores_proximidad[N_SENSORES_PROXIMIDAD], atenuadores[N_ATENUADORES], interruptores[N_INTERRUPTORES], botones;
+void messageHandler(char* topic, byte* payload, unsigned int length)
+{
+	StaticJsonDocument<256> doc;
+	JsonObject state_desired;
+	deserializeJson(doc, payload); // Put the info from the payload into the JSON document
+	Serial.printf("MESSAGE HANDLER: Topic: %s\n", topic);
+	// ------------ RETRIEVING THE SHADOW DOCUMENT FROM AWS -------------//
+	if (strcmp(topic, SHADOW_GET_ACCEPTED_TOPIC) == 0)
+		state_desired = doc["state"]["desired"];
+	else if (strcmp(topic, SHADOW_UPDATE_DELTA_TOPIC) == 0)
+		state_desired = doc["state"];
+	estado_electroiman_caldera = state_desired["electroiman_caldera"] | estado_electroiman_caldera;
+	estado_electroiman_tablero = state_desired["eletroiman_tablero"] | estado_electroiman_tablero;
+	Serial.printf("Estado electroiman caldera: %s\n", estado_electroiman_caldera ? "true" : "false");
+	Serial.printf("Estado electroiman tablero: %s\n", estado_electroiman_tablero ? "true" : "false");
+	digitalWrite(PIN_ELECTROIMAN_CALDERA, estado_electroiman_caldera);
+	digitalWrite(PIN_ELECTROIMAN_TABLERO, estado_electroiman_tablero);
 
+	// ------------------------------------------------------------------//
+
+#pragma region // Region that reports the current state to the shadow
+	doc.clear(); // Clear the JSON document so it can be used to publish the current state
+	char jsonBuffer[256];
+	JsonObject state_reported = doc["state"].createNestedObject("reported");
+	state_reported["electroiman_caldera"] = estado_electroiman_caldera;
+	state_reported["eletroiman_tablero"] = estado_electroiman_tablero;
+	serializeJsonPretty(doc, jsonBuffer);
+	client.publish(SHADOW_UPDATE_TOPIC, jsonBuffer);
+#pragma endregion
+}
 void report_state_to_shadow()
 {
 	StaticJsonDocument<512> doc;
@@ -63,27 +83,20 @@ void report_state_to_shadow()
 	JsonObject state_reported = doc["state"].createNestedObject("reported");
 
 	JsonArray state_reported_interruptores = state_reported.createNestedArray("interruptores");
-	state_reported_interruptores.add(true);
-	state_reported_interruptores.add(false);
-	state_reported_interruptores.add(true);
-	state_reported_interruptores.add(true);
-	state_reported_interruptores.add(false);
-	state_reported_interruptores.add(true);
-	state_reported_interruptores.add(false);
-	state_reported_interruptores.add(true);
-	state_reported_interruptores.add(false);
-	state_reported_interruptores.add(true);
+	for (Sensor interruptor : interruptores) {
+		state_reported_interruptores.add(interruptor.actual);
+	}
 
 	JsonArray state_reported_llaves_paso = state_reported.createNestedArray("llaves_paso");
-	state_reported_llaves_paso.add(true);
-	state_reported_llaves_paso.add(false);
-	state_reported_llaves_paso.add(true);
-	state_reported_llaves_paso.add(true);
+	for (Sensor sensor_proximidad : sensores_proximidad) {
+		state_reported_llaves_paso.add(sensor_proximidad.actual);
+	}
 
 	JsonArray state_reported_atenuadores = state_reported.createNestedArray("atenuadores");
-	state_reported_atenuadores.add(false);
-	state_reported_atenuadores.add(true);
-	state_reported["botones_presionados"] = true;
+	for (Sensor atenuador : atenuadores) {
+		state_reported_llaves_paso.add(atenuador.actual);
+	}
+	state_reported["buttons_state"] = botones.actual;
 	serializeJsonPretty(doc, jsonBuffer);
 	Serial.println("Reporting the following to the shadow:");
 	Serial.println(jsonBuffer);
@@ -99,40 +112,96 @@ void setup()
 	WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
 #endif
 	connectAWS(WIFI_SSID, WIFI_PASSWORD, THINGNAME, AWS_CERT_CA, AWS_CERT_CRT, AWS_CERT_PRIVATE, AWS_IOT_ENDPOINT); // Connect to AWS
-	pinMode(PIN_INTERRUPTOR_1, INPUT);
-	pinMode(PIN_INTERRUPTOR_2, INPUT);
-	pinMode(PIN_ELECTROIMAN, OUTPUT);
+	pinMode(PIN_ELECTROIMAN_CALDERA, OUTPUT);
+	pinMode(PIN_ELECTROIMAN_TABLERO, OUTPUT);
+	pinMode(PIN_BOTONES, INPUT);
+	for (int i = 0; i < N_INTERRUPTORES; i++) {
+		pinMode(pines_interruptores[i], OUTPUT);
+	}
+	atenuadores[0].min = 1800;
+	atenuadores[0].max = 2200;
+	client.subscribe(SHADOW_GET_ACCEPTED_TOPIC, 1); // Subscribe to the topic that gets the initial state
+	client.subscribe(SHADOW_UPDATE_DELTA_TOPIC, 1); // Subscribe to the topic that updates the state every time it changes
+	client.setCallback(messageHandler);
+	client.subscribe(SHADOW_UPDATE_DELTA_TOPIC, 1); // Subscribe to the topic that updates the state every time it changes
+	client.setCallback(messageHandler);
 }
 void loop()
 {
 	now = time(nullptr); // The NTP server uses this, if you delete this, the connection to AWS no longer works
 	// Analog read has a resolution of 12 bits ---> 0 to 4095
-	proximidad_1.actual = (analogRead(PIN_SENSOR_1) > THRESHOLD) ? true : false;
-	proximidad_2.actual = (analogRead(PIN_SENSOR_2) > THRESHOLD) ? true : false;
-	proximidad_3.actual = (analogRead(PIN_SENSOR_3) > THRESHOLD) ? true : false;
-	proximidad_4.actual = (analogRead(PIN_SENSOR_4) > THRESHOLD) ? true : false;
-	atenuador_1.nivel = analogRead(PIN_ATENUADOR_1);
-	atenuador_2.nivel = analogRead(PIN_ATENUADOR_2);
-	atenuador_1.actual = (1800 < atenuador_1.nivel && atenuador_1.nivel < 2200) ? true : false;
-	atenuador_2.actual = (800 < atenuador_2.nivel && atenuador_2.nivel < 1200) ? true : false;
-	interruptor_1.actual = digitalRead(PIN_INTERRUPTOR_1);
-	interruptor_2.actual = digitalRead(PIN_INTERRUPTOR_2);
+#pragma region reading
+	// -------------------- START OF READING SECTION --------------------
+	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
+		sensores_proximidad[i].lectura = analogRead(pines_proximidad[i]);
+	}
+	for (int i = 0; i < N_ATENUADORES; i++) {
+		atenuadores[i].lectura = analogRead(pines_atenuadores[i]);
+	}
+	for (int i = 0; i < N_INTERRUPTORES; i++) {
+		interruptores[i].actual = digitalRead(pines_interruptores[i]);
+	}
+	botones.actual = digitalRead(PIN_BOTONES);
+	// -------------------- END OF READING SECTION --------------------
+#pragma endregion reading
 
-	if (proximidad_1.state_changed() || proximidad_2.state_changed() || proximidad_3.state_changed() || proximidad_4.state_changed() || atenuador_1.state_changed() || atenuador_2.state_changed() || interruptor_1.state_changed() || interruptor_2.state_changed()) {
-		Serial.println("Cambio!");
-		proximidad_1.save_to_previous();
-		proximidad_2.save_to_previous();
-		proximidad_3.save_to_previous();
-		proximidad_4.save_to_previous();
-		atenuador_1.save_to_previous();
-		atenuador_2.save_to_previous();
-		interruptor_1.save_to_previous();
-		interruptor_2.save_to_previous();
-		report_state_to_shadow();
+#pragma region threshold
+	// -------------------- START OF THRESHOLD SECTION --------------------
+	for (Sensor sensor : sensores_proximidad) {
+		sensor.actual = (sensor.lectura > THRESHOLD) ? true : false; // Si supera el threshold de cercania
+	}
+	for (Sensor atenuador : atenuadores) {
+		// Si el potenciometro esta entre los valores establecidos
+		atenuador.actual = (atenuador.min < atenuador.lectura && atenuador.lectura < atenuador.max) ? true : false;
+	}
+	// -------------------- END OF THRESHOLD SECTION --------------------
+#pragma endregion threshold
+
+#pragma region changed
+	// -------------------- START OF STATE CHANGED SECTION --------------------
+	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
+		if (sensores_proximidad[i].state_changed()) {
+			Serial.printf("The state of the sensor_proximidad with index %i has changed\n", i);
+			should_publish = true;
+		}
+	}
+	for (int i = 0; i < N_ATENUADORES; i++) {
+		if (atenuadores[i].state_changed()) {
+			Serial.printf("The state of the atenuador with index %i has changed\n", i);
+			should_publish = true;
+		}
+	}
+	for (int i = 0; i < N_INTERRUPTORES; i++) {
+		if (interruptores[i].state_changed()) {
+			Serial.printf("The state of the interruptor with index %i has changed\n", i);
+			should_publish = true;
+		}
+	}
+	if (botones.state_changed()) {
+		should_publish = true;
 	}
 
-	Serial.printf("Sensor 1:%i \nSensor 2:%i \nSensor 3:%i \nSensor 4:%i \n", analogRead(PIN_SENSOR_1), analogRead(PIN_SENSOR_2), analogRead(PIN_SENSOR_3), analogRead(PIN_SENSOR_4));
-	Serial.printf("Atenuador 1:%i \nAtenuador 2:%i\n", atenuador_1.nivel, atenuador_2.nivel);
-	Serial.println("-----------------------------------------------------");
-	local_delay(1000); // retardo de 2 segundos entre lectura
+	// -------------------- END OF STATE CHANGED SECTION --------------------
+#pragma endregion changed
+
+#pragma region should_publish
+	// -------------------- START OF SHOULD_PUBLISH SECTION --------------------
+	if (should_publish) {
+		Serial.println("Guardando cambios!!");
+		for (Sensor sensor : sensores_proximidad) {
+			sensor.save_to_previous();
+		}
+		for (Sensor atenuador : atenuadores) {
+			atenuador.save_to_previous();
+		}
+		for (Sensor interruptor : interruptores) {
+			interruptor.save_to_previous();
+		}
+		botones.save_to_previous();
+		report_state_to_shadow();
+		should_publish = false;
+	}
+	// -------------------- END OF SHOULD_PUBLISH SECTION --------------------
+#pragma endregion should_publish
+	local_delay(1000); // retardo de 1 segundo entre lectura
 }
