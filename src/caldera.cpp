@@ -8,16 +8,37 @@
 #define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/caldera/shadow/update/accepted"
 #define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/caldera/shadow/update/delta"
 
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
+/////////////////      README       ///////////////////
+// THIS CODE NEEDS TO BE REDONE TO SUPPORT MULTIPLEXERS
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
+
 #define THRESHOLD 1500
-#define PIN_SENSOR_1 36
-#define PIN_SENSOR_2 39
-#define PIN_SENSOR_3 34
-#define PIN_SENSOR_4 35
-#define PIN_ATENUADOR_1 32
-#define PIN_ATENUADOR_2 33
-#define PIN_INTERRUPTOR_1 25
-#define PIN_INTERRUPTOR_2 26
-#define PIN_ELECTROIMAN 27
+#define N_LLAVES_PASO 4
+#define N_ATENUADORES 2
+#define N_INTERRUPTORES 10
+#define N_BOTONES 9
+#define PIN_ELECTROIMAN_CALDERA 23 // TODO: Definir esto con barla
+#define PIN_ELECTROIMAN_TABLERO 22 // TODO: Definir esto con barla
+
+int pines_proximidad[] = {
+	36, 39, 34, 35 // pines ADC1
+};
+int pines_atenuador[] = {
+	32, 33 // pines ADC1
+};
+int pines_interruptores[] = {
+	// 25,26,27 --> MUX pins
+	// 14,13 -----> Normal pins
+	25, 26, 27, 14, 13
+};
+int pines_botones[] = {
+	// 21, 19, 18 ---> MUX pins
+	// 5 ------------> Normal pins
+	21, 19, 18, 5
+};
 
 bool estado_electroiman = true;
 struct Sensor {
@@ -32,22 +53,37 @@ struct Sensor {
 	{
 		previous = actual;
 	}
-} proximidad_1, proximidad_2, proximidad_3, proximidad_4, interruptor_1, interruptor_2, atenuador_1, atenuador_2;
+} sensores_proximidad[4], atenuadores[2], interruptores[10];
 
 void report_state_to_shadow()
 {
 	StaticJsonDocument<512> doc;
 	char jsonBuffer[512];
+
 	JsonObject state_reported = doc["state"].createNestedObject("reported");
-	state_reported["proximidad_1"] = proximidad_1.actual;
-	state_reported["proximidad_2"] = proximidad_2.actual;
-	state_reported["proximidad_3"] = proximidad_3.actual;
-	state_reported["proximidad_4"] = proximidad_4.actual;
-	state_reported["atenuador_1"] = atenuador_1.actual;
-	state_reported["atenuador_2"] = atenuador_2.actual;
-	state_reported["interruptor_1"] = interruptor_1.actual;
-	state_reported["interruptor_2"] = interruptor_2.actual;
-	state_reported["electroiman"] = estado_electroiman;
+
+	JsonArray state_reported_interruptores = state_reported.createNestedArray("interruptores");
+	state_reported_interruptores.add(true);
+	state_reported_interruptores.add(false);
+	state_reported_interruptores.add(true);
+	state_reported_interruptores.add(true);
+	state_reported_interruptores.add(false);
+	state_reported_interruptores.add(true);
+	state_reported_interruptores.add(false);
+	state_reported_interruptores.add(true);
+	state_reported_interruptores.add(false);
+	state_reported_interruptores.add(true);
+
+	JsonArray state_reported_llaves_paso = state_reported.createNestedArray("llaves_paso");
+	state_reported_llaves_paso.add(true);
+	state_reported_llaves_paso.add(false);
+	state_reported_llaves_paso.add(true);
+	state_reported_llaves_paso.add(true);
+
+	JsonArray state_reported_atenuadores = state_reported.createNestedArray("atenuadores");
+	state_reported_atenuadores.add(false);
+	state_reported_atenuadores.add(true);
+	state_reported["botones_presionados"] = true;
 	serializeJsonPretty(doc, jsonBuffer);
 	Serial.println("Reporting the following to the shadow:");
 	Serial.println(jsonBuffer);
