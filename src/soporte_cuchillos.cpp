@@ -9,7 +9,6 @@
 #define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/soporte_cuchillos/shadow/update/delta"
 #define BUTTON_PIN D0
 bool button_state = false; // current state of the button
-bool already_activated = false;
 
 void report_state_to_shadow()
 {
@@ -38,12 +37,11 @@ void loop()
 	button_state = digitalRead(BUTTON_PIN);
 
 	// compare the button_state to its previous state
-	if (button_state == HIGH && already_activated == false) {
+	if (button_state == HIGH) {
 		Serial.println("on");
 		report_state_to_shadow();
-		already_activated = true;
 	}
 
 	// Delay a little bit
-	local_delay(100);
+	local_delay(500);
 }
