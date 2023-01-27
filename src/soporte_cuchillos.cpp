@@ -8,14 +8,15 @@
 #define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/soporte_cuchillos/shadow/update/accepted"
 #define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/soporte_cuchillos/shadow/update/delta"
 #define BUTTON_PIN D0
-bool button_state = false; // current state of the button
+bool current_state = false; // current state of the button
+bool previous_state = false;
 
 void report_state_to_shadow()
 {
 	StaticJsonDocument<256> doc;
 	char jsonBuffer[256];
 	JsonObject state_reported = doc["state"].createNestedObject("reported");
-	state_reported["estado_switch"] = button_state;
+	state_reported["estado_switch"] = current_state;
 	serializeJsonPretty(doc, jsonBuffer);
 	Serial.println("Reporting the following to the shadow:");
 	Serial.println(jsonBuffer);
@@ -34,11 +35,11 @@ void loop()
 		reconnect(THINGNAME, "soporte_cuchillos/status");
 	}
 	// read the pushbutton input pin:
-	button_state = digitalRead(BUTTON_PIN);
+	current_state = digitalRead(BUTTON_PIN);
 
-	// compare the button_state to its previous state
-	if (button_state == HIGH) {
-		Serial.println("on");
+	// compare the current_state to its previous state
+	if (current_state != previous_state) {
+		previous_state = current_state;
 		report_state_to_shadow();
 	}
 

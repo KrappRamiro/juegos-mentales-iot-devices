@@ -1,0 +1,32 @@
+{
+	"config": {
+		"mode": "scary",
+		"fixed_brightness": 150,
+		"flicker_min_time": 100,
+		"flicker_max_time": 300,
+		"on_off_min_time": 6000,
+		"on_off_max_time": 9000
+	},
+	"rgb_lights": [
+		{
+			"brightness": 150,
+			"flicker": true
+		},
+		{
+			"brightness": 150,
+			"flicker": true
+		},
+		{
+			"brightness": 150,
+			"flicker": true
+		},
+		{
+			"brightness": 150,
+			"flicker": true
+		}
+	],
+	"uv_light": {
+		"brightness": 150,
+		"flicker": true
+	}
+}

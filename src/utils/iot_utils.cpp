@@ -97,10 +97,9 @@ void local_yield()
 #ifdef ESP32
 
 //	rtc_wdt_feed();
-#elif defined(ESP8266)
-	ESP.wdtFeed();
 #endif
-	yield();
+	ESP.wdtFeed();
+	// yield();
 	client.loop();
 }
 

@@ -125,6 +125,7 @@ void setup()
 	client.subscribe(SHADOW_GET_ACCEPTED_TOPIC, 1); // Subscribe to the topic that gets the initial state
 	client.subscribe(SHADOW_UPDATE_DELTA_TOPIC, 1); // Subscribe to the topic that updates the state every time it changes
 	client.setCallback(messageHandler);
+	// Remember that there is no publishing to the shadow/get, i dont know if it should be programmed
 }
 void loop()
 {
