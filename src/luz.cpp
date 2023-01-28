@@ -166,6 +166,11 @@ public:
 		this->brightness = brightness;
 		analogWrite(pin, brightness);
 	}
+	// ----------- Getters ----------- //
+	byte get_pin()
+	{
+		return this->pin;
+	}
 };
 
 class RGBLight : public BaseLight {
@@ -453,10 +458,94 @@ void flicker()
 {
 	// REMEMBER: For this functions, we dont modify the .brightness class member, we just use analogWrite with the PIN_N
 	Serial.println("Flickering");
+	for (int i = 0; i < 60; i++) {
+		for (int j = 0; j < N_RGB_LIGHTS; j++) {
+			rn = random(rgb_lights[j].get_brightness() / 4, rgb_lights[j].get_brightness());
+			if (rgb_lights[j].get_flicker()) {
+				analogWrite(rgb_lights[j].get_blue_pin(), rn);
+				analogWrite(rgb_lights[j].get_red_pin(), rn);
+				analogWrite(rgb_lights[j].get_green_pin(), rn);
+			}
+		}
+		local_delay(50);
+	}
+
+	for (int i = 0; i < N_RGB_LIGHTS; i++) {
+		if (rgb_lights[i].get_flicker()) {
+			analogWrite(rgb_lights[i].get_blue_pin(), rgb_lights[i].get_brightness());
+			analogWrite(rgb_lights[i].get_red_pin(), rgb_lights[i].get_brightness());
+			analogWrite(rgb_lights[i].get_green_pin(), rgb_lights[i].get_brightness());
+		}
+	}
 }
 
 void blackout()
 {
 	// REMEMBER: For this functions, we dont modify the .brightness class member, we just use analogWrite with the PIN_N
 	Serial.println("Blackouting");
+	const unsigned long interval = random(3000, 7000); // interval at which to blink (milliseconds)
+
+	// ------------ START OF bajada de tension ------------------
+	for (int i = 0; i < 60; i++) {
+		rn = random(10, DEFAULT_BRIGHTNESS_LEVEL - i / 2);
+		for (int j = 0; j < N_RGB_LIGHTS; j++) {
+			analogWrite(rgb_lights[j].get_blue_pin(), rn);
+			analogWrite(rgb_lights[j].get_red_pin(), rn);
+			analogWrite(rgb_lights[j].get_green_pin(), rn);
+		}
+		if (uv_light.get_brightness() > 0) {
+			analogWrite(uv_light.get_pin(), rn);
+		}
+		local_delay(50);
+	}
+	// ------------- END OF bajada de tension ---------------------------
+
+	// ------------ START OF luces apagadas ------------------
+	// "se apagan las luces"
+	for (int i = 0; i < N_RGB_LIGHTS; i++) {
+		analogWrite(rgb_lights[j].get_blue_pin(), 0);
+		analogWrite(rgb_lights[j].get_red_pin(), 0);
+		analogWrite(rgb_lights[j].get_green_pin(), 0);
+	}
+	if (uv_light.get_brightness() > 0) {
+		analogWrite(uv_light.get_pin(), 0);
+	}
+	// Serial.println("Starting the millis phase");
+	// wait for some time (interval) to turn off the lights
+	unsigned long currentMillis = millis();
+	while (1) {
+		local_yield();
+		if (millis() - currentMillis >= interval) {
+			break;
+		}
+	}
+	// Serial.println("Ending the millis phase");
+	// ------------ END OF luces apagadas ------------------
+
+	// ------------ START OF reestablecer la luz de a poco ---------
+	for (int i = 0; i < 60; i++) {
+		rn = random(20, DEFAULT_BRIGHTNESS_LEVEL);
+		for (int j = 0; j < N_RGB_LIGHTS; j++) {
+			analogWrite(rgb_lights[i].get_blue_pin(), rn);
+			analogWrite(rgb_lights[i].get_red_pin(), rn);
+			analogWrite(rgb_lights[i].get_green_pin(), rn);
+		}
+		if (uv_light.get_brightness() > 0) {
+			analogWrite(uv_light.get_pin(), 0);
+		}
+		local_delay(50);
+	}
+	// ------------ END OF reestablecer la luz de a poco---------
+
+	// ------------ START OF reestablecer la luz totalmente ---------
+	for (int i = 0; i < N_RGB_LIGHTS; i++) {
+		analogWrite(rgb_lights[i].get_blue_pin(), rgb_lights[i].get_brightness());
+		analogWrite(rgb_lights[i].get_red_pin(), rgb_lights[i].get_brightness());
+		analogWrite(rgb_lights[i].get_green_pin(), rgb_lights[i].get_brightness());
+	}
+	analogWrite(uv_light.get_pin(), uv_light.get_brightness());
+
+	// ------------ END OF reestablecer la luz totalmente ---------
+
+	Serial.println("Stopped blackout");
 }
