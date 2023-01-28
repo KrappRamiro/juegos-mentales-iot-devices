@@ -95,11 +95,11 @@ void local_yield()
 // See https://sigmdel.ca/michel/program/esp8266/arduino/watchdogs_en.html
 {
 #ifdef ESP32
-
-//	rtc_wdt_feed();
-#endif
+	//	rtc_wdt_feed();
+	yield();
+#elif defined(ESP8266)
 	ESP.wdtFeed();
-	// yield();
+#endif
 	client.loop();
 }
 

@@ -33,15 +33,23 @@ bool estado_electroiman_tablero = true;
 struct Sensor {
 	int lectura; // WARNING: Only use for ANALOG READINGS, for digitalReadings, use actual
 	bool actual;
-	bool previous;
+	bool previous = false;
 	int min; // WARNING: Only use for atenuadores
 	int max; // WARNING: Only use for atenuadores
 	bool state_changed()
 	{
-		return actual != previous;
+		Serial.printf("actual is: %i and previous is %i\n", actual, previous);
+		if (actual != previous) {
+			// Serial.println("State has changed");
+			return true;
+		} else {
+			// Serial.println("State has not changed");
+			return false;
+		}
 	}
 	void save_to_previous()
 	{
+		// Serial.println("Saving to previous");
 		previous = actual;
 	}
 } sensores_proximidad[N_SENSORES_PROXIMIDAD], atenuadores[N_ATENUADORES], interruptores[N_INTERRUPTORES], botones;
@@ -57,7 +65,8 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	else if (strcmp(topic, SHADOW_UPDATE_DELTA_TOPIC) == 0)
 		state_desired = doc["state"];
 	estado_electroiman_caldera = state_desired["electroiman_caldera"] | estado_electroiman_caldera;
-	estado_electroiman_tablero = state_desired["eletroiman_tablero"] | estado_electroiman_tablero;
+	estado_electroiman_tablero = state_desired["electroiman_tablero"] | estado_electroiman_tablero;
+
 	Serial.printf("Estado electroiman caldera: %s\n", estado_electroiman_caldera ? "true" : "false");
 	Serial.printf("Estado electroiman tablero: %s\n", estado_electroiman_tablero ? "true" : "false");
 	digitalWrite(PIN_ELECTROIMAN_CALDERA, estado_electroiman_caldera);
@@ -70,7 +79,7 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	char jsonBuffer[256];
 	JsonObject state_reported = doc["state"].createNestedObject("reported");
 	state_reported["electroiman_caldera"] = estado_electroiman_caldera;
-	state_reported["eletroiman_tablero"] = estado_electroiman_tablero;
+	state_reported["electroiman_tablero"] = estado_electroiman_tablero;
 	serializeJsonPretty(doc, jsonBuffer);
 	client.publish(SHADOW_UPDATE_TOPIC, jsonBuffer);
 #pragma endregion
@@ -135,6 +144,7 @@ void loop()
 	// -------------------- START OF READING SECTION --------------------
 	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
 		sensores_proximidad[i].lectura = analogRead(pines_proximidad[i]);
+		Serial.println(sensores_proximidad[i].lectura);
 	}
 	for (int i = 0; i < N_ATENUADORES; i++) {
 		atenuadores[i].lectura = analogRead(pines_atenuadores[i]);
@@ -148,8 +158,9 @@ void loop()
 
 #pragma region threshold
 	// -------------------- START OF THRESHOLD SECTION --------------------
-	for (Sensor sensor : sensores_proximidad) {
-		sensor.actual = (sensor.lectura > THRESHOLD) ? true : false; // Si supera el threshold de cercania
+	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
+		sensores_proximidad[i].actual = (sensores_proximidad[i].lectura > THRESHOLD) ? true : false; // Si supera el threshold de cercania
+		Serial.printf("Sensor-%i:  %i\n", i, sensores_proximidad[i].actual);
 	}
 	for (Sensor atenuador : atenuadores) {
 		// Si el potenciometro esta entre los valores establecidos
@@ -163,6 +174,7 @@ void loop()
 	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
 		if (sensores_proximidad[i].state_changed()) {
 			Serial.printf("The state of the sensor_proximidad with index %i has changed\n", i);
+			sensores_proximidad[i].save_to_previous();
 			should_publish = true;
 		}
 	}
@@ -190,7 +202,8 @@ void loop()
 	if (should_publish) {
 		Serial.println("Guardando cambios!!");
 		for (Sensor sensor : sensores_proximidad) {
-			sensor.save_to_previous();
+			// sensor.save_to_previous();
+			;
 		}
 		for (Sensor atenuador : atenuadores) {
 			atenuador.save_to_previous();
