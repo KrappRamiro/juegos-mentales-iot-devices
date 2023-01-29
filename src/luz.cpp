@@ -22,10 +22,11 @@
 int rn;
 StaticJsonDocument<1024> doc;
 bool flag_update_values = false; // Represents if update_values should be called
-unsigned long flicker_previousMillis = 0; // will store last time LED was updated
-unsigned long blackout_previousMillis = 0; // will store last time LED was updated
+unsigned long flicker_start_millis = 0; // will store last time LED was updated
+unsigned long blackout_start_millis = 0; // will store last time LED was updated
 unsigned long flicker_interval;
 unsigned long blackout_interval;
+bool switch_status = false;
 // ---------------------- Functions declarations -------------------//
 void messageHandler(const char* topic, byte* payload, unsigned int length);
 void report_state_to_shadow();
@@ -286,12 +287,15 @@ void setup()
 	// ------------------ End of AWS connection ----------------------
 	// ---------------------- Set up the lights ------------------------ //
 	update_values();
+	flag_update_values = false;
 	for (int i = 0; i < N_RGB_LIGHTS; i++) {
 		rgb_lights[i].update_analog_pins();
 	}
 	report_state_to_shadow();
 	flicker_interval = random(config.get_flicker_min_time(), config.get_flicker_max_time());
 	blackout_interval = random(config.get_blackout_min_time(), config.get_blackout_max_time());
+	flicker_start_millis = millis();
+	blackout_start_millis = millis();
 	Serial.println("Configuration ended, starting to run the code");
 }
 void loop()
@@ -300,6 +304,16 @@ void loop()
 		flag_update_values = false;
 		update_values();
 		report_state_to_shadow();
+	}
+	// if (digitalRead(SWITCH_PIN) == HIGH) { // HACK Uncomment this when uploading to the real board
+	if (0) {
+		Serial.println(F("Detected the switch"));
+		if (switch_status)
+			switch_status = false;
+		else
+			switch_status = true;
+		report_state_to_shadow();
+		local_delay(300); // I delay it a little bit so the player cant turn it on-off by holding the switch
 	}
 	if (config.get_mode() == "fixed") {
 		for (int i = 0; i < N_RGB_LIGHTS; i++) {
@@ -316,37 +330,27 @@ void loop()
 		}
 	}
 	if (config.get_mode() == "scary") {
-		unsigned long startMillis = millis();
-		if (startMillis - flicker_previousMillis >= flicker_interval) {
-			flicker_previousMillis = startMillis;
+		if (millis() > flicker_start_millis + flicker_interval) {
 			Serial.println(F("The interval for flickering has passed"));
 			flicker();
+			flicker_start_millis = millis();
 			flicker_interval = random(config.get_flicker_min_time(), config.get_flicker_max_time());
 		}
-		if (startMillis - blackout_previousMillis >= blackout_interval) {
-			blackout_previousMillis = startMillis;
+		local_delay(50); // por las dudas
+		if (millis() > blackout_start_millis + blackout_interval) {
 			Serial.println("The interval for blackout has passed");
 			blackout();
+			blackout_start_millis = millis();
 			blackout_interval = random(config.get_blackout_min_time(), config.get_blackout_max_time());
 		}
 	}
-
 	local_delay(500);
 }
 
 void update_values()
 {
-	Serial.println("Updating the values in the document so they can be published later");
-	char jsonBuffer[1024];
-	serializeJson(doc, jsonBuffer);
-	Serial.println("----------------------");
-	Serial.println("----------------------\n");
-
-	Serial.println(jsonBuffer);
-
-	Serial.println("\n----------------------");
-	Serial.println("----------------------");
 	// This functions get the values from the global defined StaticJsonDocument doc variable, and saves those values to the Config, RGBLight and UVLight object
+	Serial.println("Updating the values in the document so they can be published later");
 	JsonObject state_desired;
 	if (!doc["state"]["desired"].isNull()) { // Check if there is ["state"]["desired"] in the document
 		Serial.println("The document is a get/accepted type");
@@ -387,6 +391,7 @@ void report_state_to_shadow()
 {
 	char jsonBuffer[1024];
 	JsonObject state_reported = doc["state"].createNestedObject("reported");
+	state_reported["switch_status"] = switch_status;
 	JsonObject doc_config = state_reported.createNestedObject("config");
 	doc_config["mode"] = config.get_mode();
 	doc_config["fixed_brightness"] = config.get_fixed_brightness();
@@ -467,7 +472,8 @@ void flicker()
 				analogWrite(rgb_lights[j].get_green_pin(), rn);
 			}
 		}
-		local_delay(50);
+		delay(50);
+		ESP.wdtFeed();
 	}
 
 	for (int i = 0; i < N_RGB_LIGHTS; i++) {
@@ -477,13 +483,14 @@ void flicker()
 			analogWrite(rgb_lights[i].get_green_pin(), rgb_lights[i].get_brightness());
 		}
 	}
+	Serial.println("Stopped Flickering");
 }
 
 void blackout()
 {
 	// REMEMBER: For this functions, we dont modify the .brightness class member, we just use analogWrite with the PIN_N
 	Serial.println("Blackouting");
-	const unsigned long interval = random(3000, 7000); // interval at which to blink (milliseconds)
+	const unsigned long interval = random(7000, 13000); // interval at which to blink (milliseconds)
 
 	// ------------ START OF bajada de tension ------------------
 	for (int i = 0; i < 60; i++) {
@@ -496,33 +503,36 @@ void blackout()
 		if (uv_light.get_brightness() > 0) {
 			analogWrite(uv_light.get_pin(), rn);
 		}
-		local_delay(50);
+		delay(50);
+		ESP.wdtFeed();
 	}
 	// ------------- END OF bajada de tension ---------------------------
 
 	// ------------ START OF luces apagadas ------------------
 	// "se apagan las luces"
 	for (int i = 0; i < N_RGB_LIGHTS; i++) {
-		analogWrite(rgb_lights[j].get_blue_pin(), 0);
-		analogWrite(rgb_lights[j].get_red_pin(), 0);
-		analogWrite(rgb_lights[j].get_green_pin(), 0);
+		analogWrite(rgb_lights[i].get_blue_pin(), 0);
+		analogWrite(rgb_lights[i].get_red_pin(), 0);
+		analogWrite(rgb_lights[i].get_green_pin(), 0);
 	}
 	if (uv_light.get_brightness() > 0) {
 		analogWrite(uv_light.get_pin(), 0);
 	}
-	// Serial.println("Starting the millis phase");
+	Serial.println("Starting the millis phase");
 	// wait for some time (interval) to turn off the lights
 	unsigned long currentMillis = millis();
 	while (1) {
-		local_yield();
 		if (millis() - currentMillis >= interval) {
 			break;
 		}
+		delay(50);
+		ESP.wdtFeed();
 	}
-	// Serial.println("Ending the millis phase");
+	Serial.println("Ending the millis phase");
 	// ------------ END OF luces apagadas ------------------
 
 	// ------------ START OF reestablecer la luz de a poco ---------
+	Serial.println("Start of reestablecer de a poco");
 	for (int i = 0; i < 60; i++) {
 		rn = random(20, DEFAULT_BRIGHTNESS_LEVEL);
 		for (int j = 0; j < N_RGB_LIGHTS; j++) {
@@ -533,8 +543,11 @@ void blackout()
 		if (uv_light.get_brightness() > 0) {
 			analogWrite(uv_light.get_pin(), 0);
 		}
-		local_delay(50);
+		delay(50);
+		ESP.wdtFeed();
+		Serial.print("A");
 	}
+	Serial.println("\nEnd of reestablecer de a poco");
 	// ------------ END OF reestablecer la luz de a poco---------
 
 	// ------------ START OF reestablecer la luz totalmente ---------
