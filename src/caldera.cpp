@@ -38,7 +38,7 @@ struct Sensor {
 	int max; // WARNING: Only use for atenuadores
 	bool state_changed()
 	{
-		Serial.printf("actual is: %i and previous is %i\n", actual, previous);
+		// Serial.printf("actual is: %i and previous is %i\n", actual, previous);
 		if (actual != previous) {
 			// Serial.println("State has changed");
 			return true;
@@ -64,6 +64,7 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 		state_desired = doc["state"]["desired"];
 	else if (strcmp(topic, SHADOW_UPDATE_DELTA_TOPIC) == 0)
 		state_desired = doc["state"];
+
 	estado_electroiman_caldera = state_desired["electroiman_caldera"] | estado_electroiman_caldera;
 	estado_electroiman_tablero = state_desired["electroiman_tablero"] | estado_electroiman_tablero;
 
@@ -103,9 +104,11 @@ void report_state_to_shadow()
 
 	JsonArray state_reported_atenuadores = state_reported.createNestedArray("atenuadores");
 	for (Sensor atenuador : atenuadores) {
-		state_reported_llaves_paso.add(atenuador.actual);
+		state_reported_atenuadores.add(atenuador.actual);
 	}
-	state_reported["buttons_state"] = botones.actual;
+	state_reported["botones"] = botones.actual;
+	state_reported["electroiman_caldera"] = estado_electroiman_caldera;
+	state_reported["electroiman_tablero"] = estado_electroiman_tablero;
 	serializeJsonPretty(doc, jsonBuffer);
 	Serial.println("Reporting the following to the shadow:");
 	Serial.println(jsonBuffer);
@@ -144,7 +147,7 @@ void loop()
 	// -------------------- START OF READING SECTION --------------------
 	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
 		sensores_proximidad[i].lectura = analogRead(pines_proximidad[i]);
-		Serial.println(sensores_proximidad[i].lectura);
+		Serial.printf("Analog read del sensor %i: %i\n", i, sensores_proximidad[i].lectura);
 	}
 	for (int i = 0; i < N_ATENUADORES; i++) {
 		atenuadores[i].lectura = analogRead(pines_atenuadores[i]);
@@ -160,11 +163,11 @@ void loop()
 	// -------------------- START OF THRESHOLD SECTION --------------------
 	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
 		sensores_proximidad[i].actual = (sensores_proximidad[i].lectura > THRESHOLD) ? true : false; // Si supera el threshold de cercania
-		Serial.printf("Sensor-%i:  %i\n", i, sensores_proximidad[i].actual);
+		Serial.printf("ON/OFF Sensor-%i:  %s\n", i, (sensores_proximidad[i].actual ? "ON" : "OFF"));
 	}
-	for (Sensor atenuador : atenuadores) {
+	for (int i = 0; i < N_ATENUADORES; i++) {
 		// Si el potenciometro esta entre los valores establecidos
-		atenuador.actual = (atenuador.min < atenuador.lectura && atenuador.lectura < atenuador.max) ? true : false;
+		atenuadores[i].actual = (atenuadores[i].min < atenuadores[i].lectura && atenuadores[i].lectura < atenuadores[i].max) ? true : false;
 	}
 	// -------------------- END OF THRESHOLD SECTION --------------------
 #pragma endregion threshold
@@ -200,22 +203,24 @@ void loop()
 #pragma region should_publish
 	// -------------------- START OF SHOULD_PUBLISH SECTION --------------------
 	if (should_publish) {
+		should_publish = false;
 		Serial.println("Guardando cambios!!");
-		for (Sensor sensor : sensores_proximidad) {
-			// sensor.save_to_previous();
-			;
+		for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
+			sensores_proximidad[i].save_to_previous();
 		}
-		for (Sensor atenuador : atenuadores) {
-			atenuador.save_to_previous();
+		for (int i = 0; i < N_ATENUADORES; i++) {
+			atenuadores[i].save_to_previous();
 		}
-		for (Sensor interruptor : interruptores) {
-			interruptor.save_to_previous();
+		for (int i = 0; i < N_INTERRUPTORES; i++) {
+			interruptores[i].save_to_previous();
 		}
 		botones.save_to_previous();
 		report_state_to_shadow();
-		should_publish = false;
 	}
 	// -------------------- END OF SHOULD_PUBLISH SECTION --------------------
 #pragma endregion should_publish
+	Serial.println("-------------------------------------------------------------------;");
+	Serial.println("-------------------------------------------------------------------;");
+	Serial.println("-------------------------------------------------------------------;");
 	local_delay(1000); // retardo de 1 segundo entre lectura
 }
