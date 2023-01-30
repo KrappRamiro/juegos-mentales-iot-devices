@@ -10,11 +10,11 @@
 #define PIN_ELECTROIMAN_1 D0
 #define PIN_ELECTROIMAN_2 D1
 #define PIN_ELECTROIMAN_3 D2
-#define PIN_ELECTROIMAN_4 D3
-bool estado_eletroiman_1 = true;
-bool estado_eletroiman_2 = true;
-bool estado_eletroiman_3 = true;
-bool estado_eletroiman_4 = true;
+
+bool estado_electroiman_1 = true;
+bool estado_electroiman_2 = true;
+bool estado_electroiman_3 = true;
+
 void messageHandler(char* topic, byte* payload, unsigned int length)
 {
 	StaticJsonDocument<256> doc;
@@ -26,18 +26,17 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 		state_desired = doc["state"]["desired"];
 	else if (strcmp(topic, SHADOW_UPDATE_DELTA_TOPIC) == 0)
 		state_desired = doc["state"];
-	estado_eletroiman_1 = state_desired["eletroiman_1"] | estado_eletroiman_1;
-	estado_eletroiman_2 = state_desired["eletroiman_2"] | estado_eletroiman_2;
-	estado_eletroiman_3 = state_desired["eletroiman_3"] | estado_eletroiman_3;
-	estado_eletroiman_4 = state_desired["eletroiman_4"] | estado_eletroiman_4;
-	Serial.printf("Estado eletroiman 1: %s\n", estado_eletroiman_1 ? "true" : "false");
-	Serial.printf("Estado eletroiman 2: %s\n", estado_eletroiman_2 ? "true" : "false");
-	Serial.printf("Estado eletroiman 3: %s\n", estado_eletroiman_3 ? "true" : "false");
-	Serial.printf("Estado eletroiman 4: %s\n", estado_eletroiman_4 ? "true" : "false");
-	digitalWrite(PIN_ELECTROIMAN_1, estado_eletroiman_1);
-	digitalWrite(PIN_ELECTROIMAN_2, estado_eletroiman_2);
-	digitalWrite(PIN_ELECTROIMAN_3, estado_eletroiman_3);
-	digitalWrite(PIN_ELECTROIMAN_4, estado_eletroiman_4);
+	estado_electroiman_1 = state_desired["electroiman_1"] | estado_electroiman_1;
+	estado_electroiman_2 = state_desired["electroiman_2"] | estado_electroiman_2;
+	estado_electroiman_3 = state_desired["electroiman_3"] | estado_electroiman_3;
+
+	Serial.printf("Estado electroiman 1: %s\n", estado_electroiman_1 ? "true" : "false");
+	Serial.printf("Estado electroiman 2: %s\n", estado_electroiman_2 ? "true" : "false");
+	Serial.printf("Estado electroiman 3: %s\n", estado_electroiman_3 ? "true" : "false");
+
+	digitalWrite(PIN_ELECTROIMAN_1, estado_electroiman_1);
+	digitalWrite(PIN_ELECTROIMAN_2, estado_electroiman_2);
+	digitalWrite(PIN_ELECTROIMAN_3, estado_electroiman_3);
 
 	// ------------------------------------------------------------------//
 
@@ -45,10 +44,10 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	doc.clear(); // Clear the JSON document so it can be used to publish the current state
 	char jsonBuffer[256];
 	JsonObject state_reported = doc["state"].createNestedObject("reported");
-	state_reported["eletroiman_1"] = estado_eletroiman_1;
-	state_reported["eletroiman_2"] = estado_eletroiman_2;
-	state_reported["eletroiman_3"] = estado_eletroiman_3;
-	state_reported["eletroiman_4"] = estado_eletroiman_4;
+	state_reported["electroiman_1"] = estado_electroiman_1;
+	state_reported["electroiman_2"] = estado_electroiman_2;
+	state_reported["electroiman_3"] = estado_electroiman_3;
+
 	serializeJsonPretty(doc, jsonBuffer);
 	Serial.println("Reporting the following to the shadow:");
 	Serial.println(jsonBuffer);
@@ -66,7 +65,6 @@ void setup()
 	pinMode(PIN_ELECTROIMAN_1, OUTPUT);
 	pinMode(PIN_ELECTROIMAN_2, OUTPUT);
 	pinMode(PIN_ELECTROIMAN_3, OUTPUT);
-	pinMode(PIN_ELECTROIMAN_4, OUTPUT);
 
 	// ----------- Get the Shadow document --------------//
 	StaticJsonDocument<8> doc;
