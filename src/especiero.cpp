@@ -34,6 +34,10 @@ void setup()
 		; // Do nothing until serial connection is opened
 	connectAWS(WIFI_SSID, WIFI_PASSWORD, THINGNAME, AWS_CERT_CA, AWS_CERT_CRT, AWS_CERT_PRIVATE, AWS_IOT_ENDPOINT);
 	SPI.begin(); // Init SPI bus
+	mfrc522[0].PCD_SetAntennaGain(mfrc522[0].RxGain_max);
+	mfrc522[1].PCD_SetAntennaGain(mfrc522[1].RxGain_max);
+	mfrc522[2].PCD_SetAntennaGain(mfrc522[2].RxGain_max);
+	mfrc522[3].PCD_SetAntennaGain(mfrc522[3].RxGain_max);
 	printRFIDVersions();
 	pinMode(RST_PIN, OUTPUT);
 	digitalWrite(RST_PIN, LOW); // mfrc522 readers hard power down.
