@@ -50,6 +50,10 @@ void connectAWS(const char* wifi_ssid, const char* wifi_password, const char* th
 	}
 	// Subscribe to the needed topics
 	Serial.println("AWS IoT Connected!");
+	char topic[100];
+	strcpy(topic, thingname);
+	strcat(topic, "/status");
+	client.publish(topic, "ONLINE");
 }
 
 void reconnect(const char* thingname, const char* aws_iot_publish_topic)
