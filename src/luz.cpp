@@ -305,8 +305,8 @@ void loop()
 		update_values();
 		report_state_to_shadow();
 	}
-	// if (digitalRead(SWITCH_PIN) == HIGH) { // HACK Uncomment this when uploading to the real board
-	if (0) {
+	if (digitalRead(SWITCH_PIN) == HIGH) { // HACK Uncomment this when uploading to the real board
+		// if (0) {
 		Serial.println(F("Detected the switch"));
 		if (switch_status)
 			switch_status = false;
@@ -490,7 +490,7 @@ void blackout()
 {
 	// REMEMBER: For this functions, we dont modify the .brightness class member, we just use analogWrite with the PIN_N
 	Serial.println("Blackouting");
-	const unsigned long interval = random(7000, 13000); // interval at which to blink (milliseconds)
+	const unsigned long interval = random(4000, 7000); // interval at which to blink (milliseconds)
 
 	// ------------ START OF bajada de tension ------------------
 	for (int i = 0; i < 60; i++) {
