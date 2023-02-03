@@ -7,9 +7,9 @@
 #define SHADOW_UPDATE_TOPIC "$aws/things/cajones_bajomesada/shadow/update"
 #define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/cajones_bajomesada/shadow/update/accepted"
 #define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/cajones_bajomesada/shadow/update/delta"
-#define PIN_ELECTROIMAN_1 D0
-#define PIN_ELECTROIMAN_2 D1
-#define PIN_ELECTROIMAN_3 D2
+#define PIN_ELECTROIMAN_1 D1
+#define PIN_ELECTROIMAN_2 D2
+#define PIN_ELECTROIMAN_3 D3
 
 bool estado_electroiman_1 = true;
 bool estado_electroiman_2 = true;
@@ -30,7 +30,7 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	estado_electroiman_2 = state_desired["electroiman_2"] | estado_electroiman_2;
 	estado_electroiman_3 = state_desired["electroiman_3"] | estado_electroiman_3;
 
-	Serial.printf("Estado electroiman 1: %s\n", estado_electroiman_1 ? "true" : "false");
+	Serial.printf("Estado elctroiman 1: %s\n", estado_electroiman_1 ? "true" : "false");
 	Serial.printf("Estado electroiman 2: %s\n", estado_electroiman_2 ? "true" : "false");
 	Serial.printf("Estado electroiman 3: %s\n", estado_electroiman_3 ? "true" : "false");
 
