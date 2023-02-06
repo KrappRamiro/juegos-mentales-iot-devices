@@ -10,7 +10,7 @@
 #define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/luz/shadow/update/delta"
 
 // ------------------ Constants --------------------- //
-#define SWITCH_PIN D7
+#define SWITCH_PIN A0
 #define N_RGB_LIGHTS 4
 //  -------------- Defaults values used for fallback ------------------ //
 #define DEFAULT_BRIGHTNESS_LEVEL 150
@@ -21,7 +21,7 @@
 // -------------------- Global variables ------------------- //
 int rn;
 StaticJsonDocument<1024> doc;
-bool flag_update_values = false; // Represents if update_values should be called
+bool flag_update_local_values_from_doc = false; // Represents if update_values should be called
 unsigned long flicker_start_millis = 0; // will store last time LED was updated
 unsigned long blackout_start_millis = 0; // will store last time LED was updated
 unsigned long flicker_interval;
@@ -30,7 +30,7 @@ bool switch_status = false;
 // ---------------------- Functions declarations -------------------//
 void messageHandler(const char* topic, byte* payload, unsigned int length);
 void report_state_to_shadow();
-void update_values();
+void update_local_values_from_doc();
 void flicker();
 void blackout();
 
@@ -56,12 +56,15 @@ public:
 	// ----------- Setters ----------- //
 	void set_mode(String mode)
 	{
+		// TODO Change this to guard clauses with the ERROR with return first.
 		if (mode == "fixed") {
 			Serial.println("Setting the mode to fixed");
 		} else if (mode == "scary") {
 			Serial.println("Setting the mode to scary");
 		} else if (mode == "panic") {
 			Serial.println("Setting the mode to panic");
+		} else if (mode == "off") {
+			Serial.println("Setting the mode to OFF");
 		} else {
 			Serial.printf("ERROR: the mode %s is not supported\n", mode);
 			return;
@@ -280,14 +283,14 @@ void setup()
 	serializeJson(doc, jsonBuffer);
 	client.publish(SHADOW_GET_TOPIC, jsonBuffer);
 	Serial.print("Waiting for the initial config");
-	while (!flag_update_values) {
+	while (!flag_update_local_values_from_doc) {
 		Serial.print(".");
 		local_delay(100);
 	}
 	// ------------------ End of AWS connection ----------------------
 	// ---------------------- Set up the lights ------------------------ //
-	update_values();
-	flag_update_values = false;
+	update_local_values_from_doc();
+	flag_update_local_values_from_doc = false;
 	for (int i = 0; i < N_RGB_LIGHTS; i++) {
 		rgb_lights[i].update_analog_pins();
 	}
@@ -300,20 +303,41 @@ void setup()
 }
 void loop()
 {
-	if (flag_update_values) {
-		flag_update_values = false;
-		update_values();
+	if (flag_update_local_values_from_doc) {
+		flag_update_local_values_from_doc = false;
+		update_local_values_from_doc();
 		report_state_to_shadow();
 	}
-	if (digitalRead(SWITCH_PIN) == HIGH) { // HACK Uncomment this when uploading to the real board
+	Serial.println(analogRead(SWITCH_PIN));
+	if (analogRead(SWITCH_PIN) > 500) { // HACK Uncomment this when uploading to the real board
 		// if (0) {
 		Serial.println(F("Detected the switch"));
-		if (switch_status)
+		if (switch_status) {
 			switch_status = false;
-		else
+			Serial.println("Switch now in false");
+		} else {
 			switch_status = true;
-		report_state_to_shadow();
+			Serial.println("Switch now in true");
+		}
+		// --------------- Report switch status to the shadow/update ------------------ //
+		char jsonBuffer[128];
+		JsonObject state_reported = doc["state"].createNestedObject("reported");
+		state_reported["switch_status"] = switch_status;
+		serializeJsonPretty(doc, jsonBuffer);
+		Serial.println("Reporting the following to the shadow:");
+		Serial.println(jsonBuffer);
+		const char* result = client.publish(SHADOW_UPDATE_TOPIC, jsonBuffer) ? "Shadow reporting success!!" : "Shadow reporting not successful";
+		Serial.println(result);
+		// ---------------------------------------------------------------------------- //
 		local_delay(300); // I delay it a little bit so the player cant turn it on-off by holding the switch
+	}
+	if (config.get_mode() == "off") {
+		for (int i = 0; i < N_RGB_LIGHTS; i++) {
+			// README: I use analogWrite because using set_brightness would modify the value that is going to be reported to the shadow and that would create a mess
+			analogWrite(rgb_lights[i].get_red_pin(), 0);
+			analogWrite(rgb_lights[i].get_blue_pin(), 0);
+			analogWrite(rgb_lights[i].get_green_pin(), 0);
+		}
 	}
 	if (config.get_mode() == "fixed") {
 		for (int i = 0; i < N_RGB_LIGHTS; i++) {
@@ -344,10 +368,10 @@ void loop()
 			blackout_interval = random(config.get_blackout_min_time(), config.get_blackout_max_time());
 		}
 	}
-	local_delay(500);
+	local_delay(250);
 }
 
-void update_values()
+void update_local_values_from_doc()
 {
 	// This functions get the values from the global defined StaticJsonDocument doc variable, and saves those values to the Config, RGBLight and UVLight object
 	Serial.println("Updating the values in the document so they can be published later");
@@ -456,7 +480,7 @@ void messageHandler(const char* topic, byte* payload, unsigned int length)
 		}
 	}
 	// ------------------------------------------------------------------//
-	flag_update_values = true;
+	flag_update_local_values_from_doc = true;
 }
 
 void flicker()
