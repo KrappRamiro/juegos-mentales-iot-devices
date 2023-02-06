@@ -11,19 +11,20 @@
 #define THRESHOLD 1500
 #define N_SENSORES_PROXIMIDAD 4
 #define N_ATENUADORES 2
-#define N_INTERRUPTORES 10
 
 #define PIN_ELECTROIMAN_CALDERA 25
 #define PIN_ELECTROIMAN_TABLERO 26
-#define PIN_BOTONES 15 // Metimos logica combinacional porque no nos daba la cantidad de puertos GPIO
+
+#define PIN_INTERRUPTORES_INCORRECTO 23 // Metimos logica combinacional porque no nos daba la cantidad de puertos GPIO
+#define PIN_INTERRUPTORES_CORRECTO 22 // Metimos logica combinacional porque no nos daba la cantidad de puertos GPIO
+#define PIN_BOTONES_INCORRECTO 2 // Metimos logica combinacional porque no nos daba la cantidad de puertos GPIO
+#define PIN_BOTONES_CORRECTO 15 // Metimos logica combinacional porque no nos daba la cantidad de puertos GPIO
+
 int pines_proximidad[N_SENSORES_PROXIMIDAD] = {
 	36, 39, 34, 35 // pines ADC1
 };
 int pines_atenuadores[N_ATENUADORES] = {
 	32, 33 // pines ADC1
-};
-int pines_interruptores[N_INTERRUPTORES] = {
-	23, 22, 21, 19, 18, 5, 17, 16, 4, 2
 };
 
 bool should_publish = false;
@@ -52,7 +53,7 @@ struct Sensor {
 		// Serial.println("Saving to previous");
 		previous = actual;
 	}
-} sensores_proximidad[N_SENSORES_PROXIMIDAD], atenuadores[N_ATENUADORES], interruptores[N_INTERRUPTORES], botones;
+} sensores_proximidad[N_SENSORES_PROXIMIDAD], atenuadores[N_ATENUADORES], interruptores, botones;
 void messageHandler(char* topic, byte* payload, unsigned int length)
 {
 	StaticJsonDocument<256> doc;
@@ -92,11 +93,6 @@ void report_state_to_shadow()
 
 	JsonObject state_reported = doc["state"].createNestedObject("reported");
 
-	JsonArray state_reported_interruptores = state_reported.createNestedArray("interruptores");
-	for (Sensor interruptor : interruptores) {
-		state_reported_interruptores.add(interruptor.actual);
-	}
-
 	JsonArray state_reported_llaves_paso = state_reported.createNestedArray("llaves_paso");
 	for (Sensor sensor_proximidad : sensores_proximidad) {
 		state_reported_llaves_paso.add(sensor_proximidad.actual);
@@ -107,6 +103,7 @@ void report_state_to_shadow()
 		state_reported_atenuadores.add(atenuador.actual);
 	}
 	state_reported["botones"] = botones.actual;
+	state_reported["interruptores"] = interruptores.actual;
 	state_reported["electroiman_caldera"] = estado_electroiman_caldera;
 	state_reported["electroiman_tablero"] = estado_electroiman_tablero;
 	serializeJsonPretty(doc, jsonBuffer);
@@ -126,10 +123,10 @@ void setup()
 	connectAWS(WIFI_SSID, WIFI_PASSWORD, THINGNAME, AWS_CERT_CA, AWS_CERT_CRT, AWS_CERT_PRIVATE, AWS_IOT_ENDPOINT); // Connect to AWS
 	pinMode(PIN_ELECTROIMAN_CALDERA, OUTPUT);
 	pinMode(PIN_ELECTROIMAN_TABLERO, OUTPUT);
-	pinMode(PIN_BOTONES, INPUT);
-	for (int i = 0; i < N_INTERRUPTORES; i++) {
-		pinMode(pines_interruptores[i], OUTPUT);
-	}
+	pinMode(PIN_BOTONES_CORRECTO, INPUT);
+	pinMode(PIN_BOTONES_INCORRECTO, INPUT);
+	pinMode(PIN_INTERRUPTORES_CORRECTO, INPUT);
+	pinMode(PIN_INTERRUPTORES_INCORRECTO, INPUT);
 	atenuadores[0].min = 1800;
 	atenuadores[0].max = 2200;
 	atenuadores[1].min = 1200;
@@ -137,7 +134,12 @@ void setup()
 	client.subscribe(SHADOW_GET_ACCEPTED_TOPIC, 1); // Subscribe to the topic that gets the initial state
 	client.subscribe(SHADOW_UPDATE_DELTA_TOPIC, 1); // Subscribe to the topic that updates the state every time it changes
 	client.setCallback(messageHandler);
-	// Remember that there is no publishing to the shadow/get, i dont know if it should be programmed
+	// ----------- Get the Shadow document --------------//
+	StaticJsonDocument<8> doc;
+	char jsonBuffer[8];
+	serializeJson(doc, jsonBuffer);
+	client.publish(SHADOW_GET_TOPIC, jsonBuffer);
+	// --------------------------------------------------//
 }
 void loop()
 {
@@ -152,10 +154,8 @@ void loop()
 	for (int i = 0; i < N_ATENUADORES; i++) {
 		atenuadores[i].lectura = analogRead(pines_atenuadores[i]);
 	}
-	for (int i = 0; i < N_INTERRUPTORES; i++) {
-		interruptores[i].actual = digitalRead(pines_interruptores[i]);
-	}
-	botones.actual = digitalRead(PIN_BOTONES);
+	botones.actual = (digitalRead(PIN_BOTONES_CORRECTO) == true && digitalRead(PIN_BOTONES_INCORRECTO) == false) ? true : false;
+	interruptores.actual = (digitalRead(PIN_INTERRUPTORES_CORRECTO) == true && digitalRead(PIN_INTERRUPTORES_INCORRECTO) == false) ? true : false;
 	// -------------------- END OF READING SECTION --------------------
 #pragma endregion reading
 
@@ -173,7 +173,7 @@ void loop()
 #pragma endregion threshold
 
 #pragma region changed
-	// -------------------- START OF STATE CHANGED SECTION --------------------
+	// -------------------- START OF CHECK IF STATE CHANGED SECTION --------------------
 	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
 		if (sensores_proximidad[i].state_changed()) {
 			Serial.printf("The state of the sensor_proximidad with index %i has changed\n", i);
@@ -187,21 +187,20 @@ void loop()
 			should_publish = true;
 		}
 	}
-	for (int i = 0; i < N_INTERRUPTORES; i++) {
-		if (interruptores[i].state_changed()) {
-			Serial.printf("The state of the interruptor with index %i has changed\n", i);
-			should_publish = true;
-		}
+	if (interruptores.state_changed()) {
+		Serial.println("The state of the interruptores has changed");
+		should_publish = true;
 	}
 	if (botones.state_changed()) {
+		Serial.println("The state of the buttons has changed");
 		should_publish = true;
 	}
 
-	// -------------------- END OF STATE CHANGED SECTION --------------------
+	// -------------------- END OF CHECK IF STATE CHANGED SECTION --------------------
 #pragma endregion changed
 
 #pragma region should_publish
-	// -------------------- START OF SHOULD_PUBLISH SECTION --------------------
+	// -------------------- START OF SAVE TO PREVIOUS SECTION --------------------
 	if (should_publish) {
 		should_publish = false;
 		Serial.println("Guardando cambios!!");
@@ -211,13 +210,11 @@ void loop()
 		for (int i = 0; i < N_ATENUADORES; i++) {
 			atenuadores[i].save_to_previous();
 		}
-		for (int i = 0; i < N_INTERRUPTORES; i++) {
-			interruptores[i].save_to_previous();
-		}
 		botones.save_to_previous();
+		interruptores.save_to_previous();
 		report_state_to_shadow();
 	}
-	// -------------------- END OF SHOULD_PUBLISH SECTION --------------------
+	// -------------------- END OF SAVE TO PREVIOUS SECTION --------------------
 #pragma endregion should_publish
 	Serial.println("-------------------------------------------------------------------;");
 	Serial.println("-------------------------------------------------------------------;");
