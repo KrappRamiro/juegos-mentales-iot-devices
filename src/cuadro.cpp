@@ -49,14 +49,11 @@ void loop()
 	printMultipleRFID();
 	if (newRFIDAppeared) {
 		should_publish = false;
-		/*
-		Disabled because we need to be constantly publishing
 		for (int i = 0; i < NUMBER_OF_READERS; i++) {
 			if (!(lastPub[i].equals(getUIDFromReadingStorage(i)))) {
 				should_publish = true;
 			}
 		}
-		*/
 		if (should_publish) {
 			report_state_to_shadow();
 		} else {
