@@ -8,16 +8,16 @@ PINES:
 	D7 Vol +
 */
 #include "Arduino.h"
-#include "secrets/radio_secrets.h"
 #include "secrets/shared_secrets.h"
+#include "secrets/sistema_audio_secrets.h"
 #include "utils/iot_utils.hpp"
-#define SHADOW_GET_TOPIC "$aws/things/radio/shadow/get"
-#define SHADOW_GET_ACCEPTED_TOPIC "$aws/things/radio/shadow/get/accepted"
-#define SHADOW_UPDATE_TOPIC "$aws/things/radio/shadow/update"
-#define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/radio/shadow/update/accepted"
-#define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/radio/shadow/update/delta"
-#define VOL_UP_TOPIC "radio/vol_up"
-#define VOL_DOWN_TOPIC "radio/vol_down"
+#define SHADOW_GET_TOPIC "$aws/things/sistema_audio/shadow/get"
+#define SHADOW_GET_ACCEPTED_TOPIC "$aws/things/sistema_audio/shadow/get/accepted"
+#define SHADOW_UPDATE_TOPIC "$aws/things/sistema_audio/shadow/update"
+#define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/sistema_audio/shadow/update/accepted"
+#define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/sistema_audio/shadow/update/delta"
+#define VOL_UP_TOPIC "sistema_audio/vol_up"
+#define VOL_DOWN_TOPIC "sistema_audio/vol_down"
 
 #define PIN_TRACK_1 D3
 #define PIN_TRACK_2 D4
@@ -105,7 +105,7 @@ void loop()
 {
 	now = time(nullptr); // The NTP server uses this, if you delete this, the connection to AWS no longer works
 	if (!client.connected()) {
-		reconnect(THINGNAME, "radio/status");
+		reconnect(THINGNAME, "sistema_audio/status");
 	}
 	if (should_reproduce_track) {
 		should_reproduce_track = false;
