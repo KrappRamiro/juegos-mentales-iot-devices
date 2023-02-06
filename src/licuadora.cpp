@@ -13,10 +13,11 @@
 #define PIN_BOTON D0 // FIXME cambiar esto
 #define PIN_CNY70 A0
 #define PIN_MOSFET D2
-#define THRESHOLD 1500
+#define THRESHOLD 100
 
 bool current_state = false; // current state of the button
 bool previous_state = false;
+int lectura_cny70 = 0;
 
 void report_state_to_shadow()
 {
@@ -50,11 +51,24 @@ void loop()
 		previous_state = current_state;
 		report_state_to_shadow();
 	}
-	if (analogRead(PIN_CNY70) > THRESHOLD) {
+	lectura_cny70 = analogRead(PIN_CNY70);
+	Serial.print(lectura_cny70);
+	Serial.print("\t");
+	if ((lectura_cny70) > THRESHOLD) {
+		Serial.println("\tMOSFET ON");
 		analogWrite(PIN_MOSFET, 255);
 	} else {
+		Serial.println("\tMOSFET OFF");
 		analogWrite(PIN_MOSFET, 0);
 	}
 	// Delay a little bit
-	local_delay(500);
+	// -------------- THIS IS ONLY FOR DEBUGGING ----------------
+	// StaticJsonDocument<128> doc;
+	// char jsonBuffer[128];
+	// doc["lectura_cny70"] = lectura_cny70;
+	// serializeJsonPretty(doc, jsonBuffer);
+	// Serial.println("Reporting the following debug:");
+	// Serial.println(jsonBuffer);
+	// client.publish("licuadora/debug", jsonBuffer);
+	local_delay(200);
 }
