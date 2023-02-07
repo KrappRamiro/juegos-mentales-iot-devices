@@ -2,6 +2,7 @@
 #include "secrets/caldera_secrets.h"
 #include "secrets/shared_secrets.h"
 #include "utils/iot_utils.hpp"
+#include <Servo.h>
 #define SHADOW_GET_TOPIC "$aws/things/caldera/shadow/get"
 #define SHADOW_GET_ACCEPTED_TOPIC "$aws/things/caldera/shadow/get/accepted"
 #define SHADOW_UPDATE_TOPIC "$aws/things/caldera/shadow/update"
@@ -12,13 +13,16 @@
 #define N_SENSORES_PROXIMIDAD 4
 #define N_ATENUADORES 2
 
-#define PIN_ELECTROIMAN_CALDERA 25
-#define PIN_ELECTROIMAN_TABLERO 26
+#define PIN_ELECTROIMAN_CALDERA 26
+#define PIN_ELECTROIMAN_TABLERO 25
 
 #define PIN_INTERRUPTORES_INCORRECTO 23 // Metimos logica combinacional porque no nos daba la cantidad de puertos GPIO
 #define PIN_INTERRUPTORES_CORRECTO 22 // Metimos logica combinacional porque no nos daba la cantidad de puertos GPIO
 #define PIN_BOTONES_INCORRECTO 2 // Metimos logica combinacional porque no nos daba la cantidad de puertos GPIO
 #define PIN_BOTONES_CORRECTO 15 // Metimos logica combinacional porque no nos daba la cantidad de puertos GPIO
+#define PIN_SERVO 1 // TODO Definir el pin
+
+bool flag_report_state_to_shadow = false;
 
 int pines_proximidad[N_SENSORES_PROXIMIDAD] = {
 	36, 39, 34, 35 // pines ADC1
@@ -28,8 +32,11 @@ int pines_atenuadores[N_ATENUADORES] = {
 };
 
 bool should_publish = false;
-bool estado_electroiman_caldera = true; // TODO: Implementar esto
+bool estado_electroiman_caldera = true;
 bool estado_electroiman_tablero = true;
+
+Servo servo;
+int angle = 0;
 
 struct Sensor {
 	int lectura; // WARNING: Only use for ANALOG READINGS, for digitalReadings, use actual
@@ -73,18 +80,8 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	Serial.printf("Estado electroiman tablero: %s\n", estado_electroiman_tablero ? "true" : "false");
 	digitalWrite(PIN_ELECTROIMAN_CALDERA, estado_electroiman_caldera);
 	digitalWrite(PIN_ELECTROIMAN_TABLERO, estado_electroiman_tablero);
-
+	flag_report_state_to_shadow = true;
 	// ------------------------------------------------------------------//
-
-#pragma region // Region that reports the current state to the shadow
-	doc.clear(); // Clear the JSON document so it can be used to publish the current state
-	char jsonBuffer[256];
-	JsonObject state_reported = doc["state"].createNestedObject("reported");
-	state_reported["electroiman_caldera"] = estado_electroiman_caldera;
-	state_reported["electroiman_tablero"] = estado_electroiman_tablero;
-	serializeJsonPretty(doc, jsonBuffer);
-	client.publish(SHADOW_UPDATE_TOPIC, jsonBuffer);
-#pragma endregion
 }
 void report_state_to_shadow()
 {
@@ -110,6 +107,7 @@ void report_state_to_shadow()
 	Serial.println("Reporting the following to the shadow:");
 	Serial.println(jsonBuffer);
 	client.publish(SHADOW_UPDATE_TOPIC, jsonBuffer);
+	flag_report_state_to_shadow = false;
 }
 void setup()
 {
@@ -140,12 +138,16 @@ void setup()
 	serializeJson(doc, jsonBuffer);
 	client.publish(SHADOW_GET_TOPIC, jsonBuffer);
 	// --------------------------------------------------//
+	servo.attach(PIN_SERVO);
 }
 void loop()
 {
 	now = time(nullptr); // The NTP server uses this, if you delete this, the connection to AWS no longer works
-	// Analog read has a resolution of 12 bits ---> 0 to 4095
+	if (flag_report_state_to_shadow) {
+		report_state_to_shadow();
+	}
 #pragma region reading
+	// Analog read has a resolution of 12 bits ---> 0 to 4095
 	// -------------------- START OF READING SECTION --------------------
 	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
 		sensores_proximidad[i].lectura = analogRead(pines_proximidad[i]);
@@ -214,8 +216,41 @@ void loop()
 		interruptores.save_to_previous();
 		report_state_to_shadow();
 	}
-	// -------------------- END OF SAVE TO PREVIOUS SECTION --------------------
 #pragma endregion should_publish
+	// -------------------- END OF SAVE TO PREVIOUS SECTION --------------------
+
+#pragma region servo_control
+	// -------------------- START OF SERVO CONTROL SECTION --------------------
+	if (botones.actual == true) {
+		angle += 45;
+		servo.write(angle);
+	} else {
+		angle -= 45;
+		servo.write(angle);
+	}
+	if (atenuadores[0].actual == true && atenuadores[1].actual == true) {
+		angle += 45;
+		servo.write(angle);
+	} else {
+		angle -= 45;
+		servo.write(angle);
+	}
+	if (interruptores.actual == true) {
+		angle += 45;
+		servo.write(angle);
+	} else {
+		angle -= 45;
+		servo.write(angle);
+	}
+	if (sensores_proximidad[0].actual == true && sensores_proximidad[1].actual == true && sensores_proximidad[2].actual == true && sensores_proximidad[3].actual == true) {
+		angle += 45;
+		servo.write(angle);
+	} else {
+		angle -= 45;
+		servo.write(angle);
+	}
+	// -------------------- END OF SERVO CONTROL SECTION --------------------
+#pragma endregion servo_control
 	Serial.println("-------------------------------------------------------------------;");
 	Serial.println("-------------------------------------------------------------------;");
 	Serial.println("-------------------------------------------------------------------;");
