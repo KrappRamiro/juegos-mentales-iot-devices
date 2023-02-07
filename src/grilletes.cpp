@@ -8,9 +8,9 @@
 #define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/grilletes/shadow/update/accepted"
 #define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/grilletes/shadow/update/delta"
 #define PIN_GRILLETE_1 D0
-#define PIN_GRILLETE_2 D1
+#define PIN_GRILLETE_2 D3
 #define PIN_GRILLETE_3 D2
-#define PIN_GRILLETE_4 D3
+#define PIN_GRILLETE_4 D1
 bool estado_grillete_1 = true;
 bool estado_grillete_2 = true;
 bool estado_grillete_3 = true;
