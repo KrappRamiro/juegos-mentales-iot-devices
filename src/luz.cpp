@@ -8,6 +8,7 @@
 #define SHADOW_UPDATE_TOPIC "$aws/things/luz/shadow/update"
 #define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/luz/shadow/update/accepted"
 #define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/luz/shadow/update/delta"
+#define LIGHT_SWITCH_TOPIC "luz/switch"
 
 // ------------------ Constants --------------------- //
 #define SWITCH_PIN A0
@@ -26,7 +27,6 @@ unsigned long flicker_start_millis = 0; // will store last time LED was updated
 unsigned long blackout_start_millis = 0; // will store last time LED was updated
 unsigned long flicker_interval;
 unsigned long blackout_interval;
-bool switch_status = false;
 // ---------------------- Functions declarations -------------------//
 void messageHandler(const char* topic, byte* payload, unsigned int length);
 void report_state_to_shadow();
@@ -309,27 +309,16 @@ void loop()
 		report_state_to_shadow();
 	}
 	Serial.println(analogRead(SWITCH_PIN));
-	if (analogRead(SWITCH_PIN) > 500) { // HACK Uncomment this when uploading to the real board
-		// if (0) {
+	if (analogRead(SWITCH_PIN) > 500) {
 		Serial.println(F("Detected the switch"));
-		if (switch_status) {
-			switch_status = false;
-			Serial.println("Switch now in false");
-		} else {
-			switch_status = true;
-			Serial.println("Switch now in true");
-		}
 		// --------------- Report switch status to the shadow/update ------------------ //
-		char jsonBuffer[128];
-		JsonObject state_reported = doc["state"].createNestedObject("reported");
-		state_reported["switch_status"] = switch_status;
-		serializeJsonPretty(doc, jsonBuffer);
-		Serial.println("Reporting the following to the shadow:");
-		Serial.println(jsonBuffer);
-		const char* result = client.publish(SHADOW_UPDATE_TOPIC, jsonBuffer) ? "Shadow reporting success!!" : "Shadow reporting not successful";
+		StaticJsonDocument<8> emptyDoc;
+		char jsonBuffer[8];
+		serializeJsonPretty(emptyDoc, jsonBuffer);
+		const char* result = client.publish(LIGHT_SWITCH_TOPIC, jsonBuffer) ? "Light reporting success!!" : "Light reporting not successful";
 		Serial.println(result);
 		// ---------------------------------------------------------------------------- //
-		local_delay(300); // I delay it a little bit so the player cant turn it on-off by holding the switch
+		local_delay(200); // I delay it a little bit so the player cant turn it on-off by holding the switch
 	}
 	if (config.get_mode() == "off") {
 		for (int i = 0; i < N_RGB_LIGHTS; i++) {
@@ -415,7 +404,6 @@ void report_state_to_shadow()
 {
 	char jsonBuffer[1024];
 	JsonObject state_reported = doc["state"].createNestedObject("reported");
-	state_reported["switch_status"] = switch_status;
 	JsonObject doc_config = state_reported.createNestedObject("config");
 	doc_config["mode"] = config.get_mode();
 	doc_config["fixed_brightness"] = config.get_fixed_brightness();
