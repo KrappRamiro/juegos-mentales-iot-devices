@@ -70,8 +70,8 @@ void reconnect(const char* thingname, const char* aws_iot_publish_topic)
 			Serial.print("failed, rc=");
 			Serial.print(client.state());
 			Serial.println(" try again in 5 seconds");
-			// Wait 5 seconds before retrying
-			delay(5000);
+			// Wait 2 seconds before retrying
+			delay(2000);
 		}
 	}
 }
