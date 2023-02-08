@@ -49,7 +49,6 @@ void loop()
 	if (!client.connected()) {
 		reconnect(THINGNAME, "especiero/status");
 	}
-	client.loop();
 	printMultipleRFID();
 	if (newRFIDAppeared) {
 		should_publish = false;
@@ -65,5 +64,5 @@ void loop()
 		}
 		newRFIDAppeared = false;
 	}
-	local_delay(500);
+	local_delay(100);
 }
