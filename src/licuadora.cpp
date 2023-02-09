@@ -42,7 +42,7 @@ void loop()
 {
 	now = time(nullptr); // The NTP server uses this, if you delete this, the connection to AWS no longer works
 	if (!client.connected()) {
-		reconnect(THINGNAME, "soporte_cuchillos/status");
+		reconnect(THINGNAME, "licuadora/status");
 	}
 	// read the pushbutton input pin:
 	current_state = digitalRead(PIN_BOTON);
