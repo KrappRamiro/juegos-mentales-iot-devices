@@ -20,7 +20,7 @@
 #define PIN_INTERRUPTORES_CORRECTO 22 // Metimos logica combinacional porque no nos daba la cantidad de puertos GPIO
 #define PIN_BOTONES_INCORRECTO 2 // Metimos logica combinacional porque no nos daba la cantidad de puertos GPIO
 #define PIN_BOTONES_CORRECTO 15 // Metimos logica combinacional porque no nos daba la cantidad de puertos GPIO
-#define PIN_SERVO 1 // TODO Definir el pin
+#define PIN_SERVO 27
 
 bool flag_report_state_to_shadow = false;
 
@@ -158,6 +158,16 @@ void loop()
 	}
 	botones.actual = (digitalRead(PIN_BOTONES_CORRECTO) == true && digitalRead(PIN_BOTONES_INCORRECTO) == false) ? true : false;
 	interruptores.actual = (digitalRead(PIN_INTERRUPTORES_CORRECTO) == true && digitalRead(PIN_INTERRUPTORES_INCORRECTO) == false) ? true : false;
+
+	// ----------- Debug of the analog readings ------------ //
+	StaticJsonDocument<256> debugDoc;
+	char jsonBuffer[256];
+	debugDoc["sensor-0"] = sensores_proximidad[0].lectura;
+	debugDoc["sensor-1"] = sensores_proximidad[1].lectura;
+	debugDoc["sensor-2"] = sensores_proximidad[2].lectura;
+	debugDoc["sensor-3"] = sensores_proximidad[3].lectura;
+	serializeJson(debugDoc, jsonBuffer);
+	client.publish("caldera/debug", jsonBuffer);
 	// -------------------- END OF READING SECTION --------------------
 #pragma endregion reading
 
