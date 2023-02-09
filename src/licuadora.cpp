@@ -10,10 +10,10 @@
 #define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/licuadora/shadow/update/accepted"
 #define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/licuadora/shadow/update/delta"
 
-#define PIN_BOTON D0 // FIXME cambiar esto
+#define PIN_BOTON D0
 #define PIN_CNY70 A0
 #define PIN_MOSFET D2
-#define THRESHOLD 100
+#define THRESHOLD 40
 
 bool current_state = false; // current state of the button
 bool previous_state = false;

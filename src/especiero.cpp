@@ -7,9 +7,19 @@
 #define SHADOW_UPDATE_TOPIC "$aws/things/especiero/shadow/update"
 #define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/especiero/shadow/update/accepted"
 #define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/especiero/shadow/update/delta"
+#define RESET_TOPIC "especiero/reset"
 String lastPub[NUMBER_OF_READERS]; // should be in the mixin
 bool should_publish;
 
+void messageHandler(char* topic, byte* payload, unsigned int length)
+{
+	if (strcmp(topic, RESET_TOPIC) == 0) {
+		for (int i = 0; i < NUMBER_OF_READERS; i++) {
+			lastPub[i] = "00 00 00 00";
+		}
+		Serial.println("Cleaning lastPub");
+	}
+}
 void report_state_to_shadow()
 {
 	StaticJsonDocument<256> doc;
@@ -41,6 +51,8 @@ void setup()
 	printRFIDVersions();
 	pinMode(RST_PIN, OUTPUT);
 	digitalWrite(RST_PIN, LOW); // mfrc522 readers hard power down.
+	client.subscribe(RESET_TOPIC);
+	client.setCallback(messageHandler);
 }
 
 void loop()
@@ -64,5 +76,5 @@ void loop()
 		}
 		newRFIDAppeared = false;
 	}
-	local_delay(100);
+	local_delay(200);
 }

@@ -37,8 +37,8 @@ void connectAWS(const char* wifi_ssid, const char* wifi_password, const char* th
 	// Connect to the MQTT broker on the AWS endpoint we defined earlier
 	client.setServer(aws_cert_endpoint, 8883);
 	client.setBufferSize(6000); // See https://github.com/knolleary/pubsubclient/issues/485#issuecomment-435236670
-	client.setKeepAlive(15);
-	client.setSocketTimeout(15);
+	client.setKeepAlive(150);
+	client.setSocketTimeout(150);
 	Serial.println("Connecting to AWS IOT");
 	while (!client.connect(thingname)) {
 		Serial.print(".");
