@@ -16,4 +16,5 @@ void printUID(byte* buffer);
 void printRFIDVersions();
 void printMultipleRFID();
 String getUIDFromReadingStorage(int readerNumber);
+void clearReadingStorage();
 #endif

@@ -19,6 +19,7 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 		}
 		Serial.println("Cleaning lastPub");
 	}
+	clearReadingStorage();
 }
 
 void report_state_to_shadow()

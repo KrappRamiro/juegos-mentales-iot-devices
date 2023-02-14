@@ -15,10 +15,11 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 {
 	if (strcmp(topic, RESET_TOPIC) == 0) {
 		for (int i = 0; i < NUMBER_OF_READERS; i++) {
-			lastPub[i] = "00 00 00 00";
+			// lastPub[i] = "00 00 00 00";
 		}
-		Serial.println("Cleaning lastPub");
+		Serial.println("Cleaning RFID memory");
 	}
+	clearReadingStorage();
 }
 
 void report_state_to_shadow()

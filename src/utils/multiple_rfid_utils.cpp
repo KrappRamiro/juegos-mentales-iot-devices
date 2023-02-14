@@ -15,11 +15,12 @@ bool getRFID(byte readerNumber)
 	digitalWrite(RST_PIN, HIGH); // Get RC522 reader out of hard low power mode
 	mfrc522[readerNumber].PCD_Init(); // Init the reader
 	//****** Trying to set antenna gain to max, erratic functioning of the readers ***********
-	// mfrc522[readerNumber].PCD_SetRegisterBitMask(mfrc522[readerNumber].RFCfgReg, (0x07<<4));
+	// mfrc522[readerNumber].PCD_SetRegisterBitMask(mfrc522[readerNumber].RFCfgReg, (0x07 << 4));
 	// mfrc522[readerNumber].PCD_SetAntennaGain(0x04);
-	// mfrc522[readerNumber].PCD_ClearRegisterBitMask(mfrc522[readerNumber].RFCfgReg, (0x07<<4));
+	// mfrc522[readerNumber].PCD_ClearRegisterBitMask(mfrc522[readerNumber].RFCfgReg, (0x07 << 4));
 	// mfrc522[readerNumber].PCD_SetRegisterBitMask(mfrc522[readerNumber].RFCfgReg, 0x07);
-	// delay(50);
+	mfrc522[readerNumber].PCD_SetAntennaGain(mfrc522[readerNumber].RxGain_max);
+	delay(50);
 	if (mfrc522[readerNumber].PICC_IsNewCardPresent() && mfrc522[readerNumber].PICC_ReadCardSerial()) {
 		memcpy(readingStorage[readerNumber], mfrc522[readerNumber].uid.uidByte, 4);
 		isPICCpresent = true;
@@ -76,4 +77,13 @@ String getUIDFromReadingStorage(int readerNumber)
 	content.toUpperCase();
 	String theUID = content.substring(1);
 	return theUID;
+}
+
+void clearReadingStorage()
+{
+	for (int i = 0; i < NUMBER_OF_READERS; i++) {
+		byte clean = 0x10;
+		memcpy(readingStorage[i], &clean, 4);
+	}
+	Serial.println("Cleaning reading storage");
 }
