@@ -1,4 +1,4 @@
-#include "utils/multiple_rfid_utils.hpp"
+#include "utils/rfid_utils.hpp"
 
 byte readingStorage[NUMBER_OF_READERS][4]; // Matrix for storing UID over each reader, its 4 because the UID is stored in the first 4 bytes of the tag, think of it as a "Readed UID Storage"
 #if NUMBER_OF_READERS == 1

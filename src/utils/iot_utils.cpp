@@ -93,7 +93,7 @@ void local_delay(unsigned long millisecs)
 		}
 	}
 }
-void debug(const char* message, const char* subtopic = "info")
+void debug(const char* message, const char* subtopic)
 {
 	Serial.printf("%s: %s\n", subtopic, message);
 	// THINGNAME / debug / subtopic

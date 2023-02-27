@@ -1,5 +1,5 @@
 #include "utils/iot_utils.hpp"
-#include "utils/multiple_rfid_utils.hpp"
+#include "utils/rfid_utils.hpp"
 
 String lastPub[NUMBER_OF_READERS];
 bool should_publish;
