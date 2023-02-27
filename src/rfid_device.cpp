@@ -44,8 +44,8 @@ void setup()
 	printRFIDVersions();
 	pinMode(RST_PIN, OUTPUT);
 	digitalWrite(RST_PIN, LOW); // mfrc522 readers hard power down.
-	mqttc.subscribe(RESET_TOPIC);
 	mqttc.setCallback(messageHandler);
+	mqttc.subscribe(RESET_TOPIC);
 	debug("Finished configuration");
 }
 void loop()
