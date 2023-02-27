@@ -93,8 +93,13 @@ void local_delay(unsigned long millisecs)
 		}
 	}
 }
-void debug(const char* message)
+void debug(const char* message, const char* subtopic)
 {
 	Serial.println(message);
-	mqttc.publish(DEBUG_TOPIC, message);
+	// THINGNAME / debug / subtopic
+	char topic[100] = "";
+	strcat(topic, THINGNAME);
+	strcat(topic, "/debug/");
+	strcat(topic, subtopic);
+	mqttc.publish(topic, message);
 }

@@ -27,7 +27,7 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 		for (int i = 0; i < NUMBER_OF_READERS; i++) {
 			lastPub[i] = "00 00 00 00";
 		}
-		debug("Cleaning lastPub");
+		debug("Cleaning lastPub", "general");
 		clearReadingStorage();
 	}
 }
