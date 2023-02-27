@@ -51,10 +51,10 @@ void setup()
 	digitalWrite(PIN_VOL_UP, LOW);
 	digitalWrite(PIN_VOL_DOWN, LOW);
 	connect_mqtt_broker();
-	client.setCallback(messageHandler);
-	client.subscribe(TRACK_N_TOPIC, 1);
-	client.subscribe(VOL_UP_TOPIC, 1);
-	client.subscribe(VOL_DOWN_TOPIC, 1);
+	mqttc.setCallback(messageHandler);
+	mqttc.subscribe(TRACK_N_TOPIC, 1);
+	mqttc.subscribe(VOL_UP_TOPIC, 1);
+	mqttc.subscribe(VOL_DOWN_TOPIC, 1);
 	while (!config_finished_flag) {
 		local_delay(150);
 		Serial.print("*");
