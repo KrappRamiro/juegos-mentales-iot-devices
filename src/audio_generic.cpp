@@ -45,6 +45,8 @@ void high_low(int pin_n)
 void setup()
 {
 	Serial.begin(115200);
+	while (!Serial)
+		; // Do nothing until serial connection is opened
 	pinMode(TRACK_1_PIN, OUTPUT);
 	pinMode(TRACK_2_PIN, OUTPUT);
 	pinMode(PAUSE_PIN, OUTPUT);
