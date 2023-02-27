@@ -1,13 +1,14 @@
 #include "utils/iot_utils.hpp"
-#define PIN_TRACK_1 D3
-#define PIN_TRACK_2 D4
-#define PIN_PAUSA D5 // track_n 0
-#define PIN_VOL_DOWN D6
-#define PIN_VOL_UP D7
+#define TRACK_1_PIN D3
+#define TRACK_2_PIN D4
+#define PAUSE_PIN D5
+#define VOL_DOWN_PIN D6
+#define VOL_UP_PIN D7
 
 bool config_finished_flag = false;
 bool vol_up_flag = false;
 bool vol_down_flag = false;
+bool pause_flag = false;
 bool should_reproduce_track = false;
 int track_n = 0;
 void messageHandler(char* topic, byte* payload, unsigned int length)
@@ -22,6 +23,10 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	}
 	if (strcmp(topic, VOL_DOWN_TOPIC) == 0) {
 		vol_down_flag = true;
+		return;
+	}
+	if (strcmp(topic, PAUSE_TOPIC) == 0) {
+		pause_flag = true;
 		return;
 	}
 	if (strcmp(topic, TRACK_N_TOPIC) == 0) {
@@ -40,16 +45,16 @@ void high_low(int pin_n)
 void setup()
 {
 	Serial.begin(115200);
-	pinMode(PIN_TRACK_1, OUTPUT);
-	pinMode(PIN_TRACK_2, OUTPUT);
-	pinMode(PIN_PAUSA, OUTPUT);
-	pinMode(PIN_VOL_UP, OUTPUT);
-	pinMode(PIN_VOL_DOWN, OUTPUT);
-	digitalWrite(PIN_TRACK_1, LOW);
-	digitalWrite(PIN_TRACK_2, LOW);
-	digitalWrite(PIN_PAUSA, LOW);
-	digitalWrite(PIN_VOL_UP, LOW);
-	digitalWrite(PIN_VOL_DOWN, LOW);
+	pinMode(TRACK_1_PIN, OUTPUT);
+	pinMode(TRACK_2_PIN, OUTPUT);
+	pinMode(PAUSE_PIN, OUTPUT);
+	pinMode(VOL_UP_PIN, OUTPUT);
+	pinMode(VOL_DOWN_PIN, OUTPUT);
+	digitalWrite(TRACK_1_PIN, LOW);
+	digitalWrite(TRACK_2_PIN, LOW);
+	digitalWrite(PAUSE_PIN, LOW);
+	digitalWrite(VOL_UP_PIN, LOW);
+	digitalWrite(VOL_DOWN_PIN, LOW);
 	connect_mqtt_broker();
 	mqttc.setCallback(messageHandler);
 	mqttc.subscribe(TRACK_N_TOPIC, 1);
@@ -70,21 +75,26 @@ void loop()
 		should_reproduce_track = false;
 		Serial.printf("Reproducing track %i\n", track_n);
 		if (track_n == 1)
-			high_low(PIN_TRACK_1);
+			high_low(TRACK_1_PIN);
 		else if (track_n == 2)
-			high_low(PIN_TRACK_2);
+			high_low(TRACK_2_PIN);
 		else if (track_n == 0)
-			high_low(PIN_PAUSA);
+			high_low(PAUSE_PIN);
 	}
 	if (vol_up_flag) {
 		debug("Volume UP");
-		high_low(PIN_VOL_UP);
+		high_low(VOL_UP_PIN);
 		vol_up_flag = false;
 	}
 	if (vol_down_flag) {
 		debug("Volume DOWN");
-		high_low(PIN_VOL_DOWN);
+		high_low(VOL_DOWN_PIN);
 		vol_down_flag = false;
+	}
+	if (pause_flag) {
+		debug("Pausing the music");
+		high_low(PAUSE_PIN);
+		pause_flag = false;
 	}
 	// Delay a little bit
 	local_delay(200);
