@@ -18,4 +18,5 @@ void reconnect();
 void NTPConnect();
 void local_yield();
 void local_delay(unsigned long millisecs);
+void debug(const char* message);
 #endif

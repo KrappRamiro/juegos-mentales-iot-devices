@@ -1,6 +1,7 @@
 #include "utils/iot_utils.hpp"
 #include "secrets/shared_secrets.h"
 #ifdef ESP32
+#include "iot_utils.hpp"
 #include "soc/rtc_wdt.h"
 #endif
 time_t now;
@@ -91,4 +92,9 @@ void local_delay(unsigned long millisecs)
 			local_yield();
 		}
 	}
+}
+void debug(const char* message)
+{
+	Serial.println(message);
+	mqttc.publish(DEBUG_TOPIC, message);
 }
