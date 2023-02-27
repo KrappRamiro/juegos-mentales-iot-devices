@@ -1,74 +1,57 @@
 // A0 es el sensor CNY70, en la placa original estaba a D1 y hay que cambiarlo
 // D2 es el pin del MOSFET, hay que mandarle PWM al palo cuando tocan el boton
 // DX es el pin del boton, en el codigo pongo D0 pero despues lo cambio a ver bien
-#include "secrets/licuadora_secrets.h"
-#include "secrets/shared_secrets.h"
 #include "utils/iot_utils.hpp"
-#define SHADOW_GET_TOPIC "$aws/things/licuadora/shadow/get"
-#define SHADOW_GET_ACCEPTED_TOPIC "$aws/things/licuadora/shadow/get/accepted"
-#define SHADOW_UPDATE_TOPIC "$aws/things/licuadora/shadow/update"
-#define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/licuadora/shadow/update/accepted"
-#define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/licuadora/shadow/update/delta"
-
-#define PIN_BOTON D0
-#define PIN_CNY70 A0
-#define PIN_MOSFET D2
+#define BUTTON_PIN D0
+#define CNY70_PIN A0
+#define MOSFET_PIN D2
 #define THRESHOLD 40
 
 bool current_state = false; // current state of the button
 bool previous_state = false;
-int lectura_cny70 = 0;
+int cny70_reading = 0;
 
-void report_state_to_shadow()
+void report_reading_to_broker()
 {
-	StaticJsonDocument<256> doc;
-	char jsonBuffer[256];
-	JsonObject state_reported = doc["state"].createNestedObject("reported");
-	state_reported["estado_boton"] = current_state;
+	StaticJsonDocument<64> doc;
+	char jsonBuffer[64];
+	doc["switch"] = current_state;
 	serializeJsonPretty(doc, jsonBuffer);
-	Serial.println("Reporting the following to the shadow:");
+	Serial.println("Reporting the following to the broker:");
 	Serial.println(jsonBuffer);
-	client.publish(SHADOW_UPDATE_TOPIC, jsonBuffer);
+	mqttc.publish(READING_TOPIC, jsonBuffer);
 }
 
 void setup()
 {
 	Serial.begin(115200);
-	connectAWS(WIFI_SSID, WIFI_PASSWORD, THINGNAME, AWS_CERT_CA, AWS_CERT_CRT, AWS_CERT_PRIVATE, AWS_IOT_ENDPOINT); // Connect to AWS
-	pinMode(PIN_BOTON, INPUT);
+	while (!Serial)
+		; // Do nothing until serial connection is opened
+	connect_mqtt_broker();
+	pinMode(BUTTON_PIN, INPUT);
+	debug("Finished configuration");
 }
 
 void loop()
 {
-	now = time(nullptr); // The NTP server uses this, if you delete this, the connection to AWS no longer works
-	if (!client.connected()) {
-		reconnect(THINGNAME, "licuadora/status");
+	if (!mqttc.connected()) {
+		reconnect();
 	}
 	// read the pushbutton input pin:
-	current_state = digitalRead(PIN_BOTON);
+	current_state = digitalRead(BUTTON_PIN);
 	// compare the current_state to its previous state
 	if (current_state != previous_state) {
 		previous_state = current_state;
-		report_state_to_shadow();
+		report_reading_to_broker();
 	}
-	lectura_cny70 = analogRead(PIN_CNY70);
-	Serial.print(lectura_cny70);
-	Serial.print("\t");
-	if ((lectura_cny70) > THRESHOLD) {
-		Serial.println("\tMOSFET ON");
-		analogWrite(PIN_MOSFET, 255);
+	cny70_reading = analogRead(CNY70_PIN);
+	debug("La lectura es", cny70_reading, "debug");
+	if ((cny70_reading) > THRESHOLD) {
+		debug("MOSFET ON");
+		analogWrite(MOSFET_PIN, 255);
 	} else {
-		Serial.println("\tMOSFET OFF");
-		analogWrite(PIN_MOSFET, 0);
+		debug("MOSFET OFF");
+		analogWrite(MOSFET_PIN, 0);
 	}
-	// Delay a little bit
-	// -------------- THIS IS ONLY FOR DEBUGGING ----------------
-	// StaticJsonDocument<128> doc;
-	// char jsonBuffer[128];
-	// doc["lectura_cny70"] = lectura_cny70;
-	// serializeJsonPretty(doc, jsonBuffer);
-	// Serial.println("Reporting the following debug:");
-	// Serial.println(jsonBuffer);
-	// client.publish("licuadora/debug", jsonBuffer);
 	local_delay(200);
 }
