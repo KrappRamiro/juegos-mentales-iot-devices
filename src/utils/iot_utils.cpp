@@ -95,6 +95,24 @@ void local_delay(unsigned long millisecs)
 }
 void debug(const char* message, const char* subtopic)
 {
+	// Debug para solamente texto
+	Serial.printf("%s: %s\n", subtopic, message);
+	// THINGNAME / debug / subtopic
+	char topic[100] = "";
+	strcat(topic, THINGNAME);
+	strcat(topic, "/debug/");
+	strcat(topic, subtopic);
+	mqttc.publish(topic, message);
+}
+
+void debug(char* message, int number, const char* subtopic)
+{
+	// Debug que soporta printear un numero
+	// Appendeo de number a message
+	char integer_string[32];
+	sprintf(integer_string, "%i", number);
+	strcat(message, integer_string);
+
 	Serial.printf("%s: %s\n", subtopic, message);
 	// THINGNAME / debug / subtopic
 	char topic[100] = "";
