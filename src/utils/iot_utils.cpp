@@ -10,7 +10,7 @@ time_t nowish = 1510592825;
 WiFiClient esp_client = WiFiClient();
 PubSubClient mqttc(esp_client);
 
-void connect_mqtt_broker(const char* thingname)
+void connect_mqtt_broker()
 {
 	Serial.printf("Connecting to Wi-Fi %s\n", WIFI_SSID);
 	WiFi.mode(WIFI_STA);

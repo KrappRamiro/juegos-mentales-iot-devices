@@ -36,7 +36,7 @@ void setup()
 	Serial.begin(115200); // Initialize serial communications
 	while (!Serial)
 		; // Do nothing until serial connection is opened
-	connect_mqtt_broker(THINGNAME);
+	connect_mqtt_broker();
 	SPI.begin(); // Init SPI bus
 	for (int i = 0; i < NUMBER_OF_READERS; i++) {
 		mfrc522[i].PCD_SetAntennaGain(mfrc522[i].RxGain_max);

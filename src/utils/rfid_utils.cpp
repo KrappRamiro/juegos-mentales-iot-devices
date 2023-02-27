@@ -85,5 +85,4 @@ void clearReadingStorage()
 		byte clean = 0x10;
 		memcpy(readingStorage[i], &clean, 4);
 	}
-	Serial.println("Cleaning reading storage");
 }

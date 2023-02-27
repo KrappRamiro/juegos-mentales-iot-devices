@@ -13,7 +13,7 @@ extern time_t now;
 extern time_t nowish;
 extern WiFiClient esp_client;
 extern PubSubClient mqttc;
-void connect_mqtt_broker(const char* thingname);
+void connect_mqtt_broker();
 void reconnect();
 void NTPConnect();
 void local_yield();
