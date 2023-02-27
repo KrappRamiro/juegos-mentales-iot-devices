@@ -27,7 +27,7 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 		for (int i = 0; i < NUMBER_OF_READERS; i++) {
 			lastPub[i] = "00 00 00 00";
 		}
-		debug("Cleaning lastPub", "general");
+		debug("Cleaning reading storage");
 		clearReadingStorage();
 	}
 }
@@ -46,6 +46,7 @@ void setup()
 	digitalWrite(RST_PIN, LOW); // mfrc522 readers hard power down.
 	mqttc.subscribe(RESET_TOPIC);
 	mqttc.setCallback(messageHandler);
+	debug("Finished configuration");
 }
 void loop()
 {
@@ -61,6 +62,7 @@ void loop()
 			}
 		}
 		if (should_publish) {
+			debug("New RFID detected, reporting to broker");
 			report_rfid_to_broker();
 		} else {
 			Serial.println("Not publishing because the state is the same as before");
