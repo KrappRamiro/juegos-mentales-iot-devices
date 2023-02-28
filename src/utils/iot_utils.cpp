@@ -121,3 +121,14 @@ void debug(char* message, int number, const char* subtopic)
 	strcat(topic, subtopic);
 	mqttc.publish(topic, message);
 }
+
+void report_reading_to_broker(const char* subtopic, JsonDocument& doc, char* jsonBuffer)
+{
+	serializeJson(doc, jsonBuffer, doc.size());
+	char topic[100] = "";
+	strcat(topic, THINGNAME);
+	strcat(topic, "/readings/");
+	strcat(topic, subtopic);
+	const char* result = (mqttc.publish(topic, jsonBuffer)) ? "success publishing" : "failed publishing";
+	Serial.println(result);
+}
