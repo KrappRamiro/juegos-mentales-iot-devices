@@ -38,6 +38,7 @@ void setup()
 	connect_mqtt_broker();
 	mqttc.setCallback(messageHandler);
 	mqttc.subscribe(ELECTROIMAN_TOPIC, 1); // Subscribe to the topic that updates the state every time it changes
+	debug("Finished configuration");
 }
 
 void loop()

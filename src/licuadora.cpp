@@ -11,17 +11,6 @@ bool current_state = false; // current state of the button
 bool previous_state = false;
 int cny70_reading = 0;
 
-void report_reading_to_broker()
-{
-	StaticJsonDocument<64> doc;
-	char jsonBuffer[64];
-	doc["switch"] = current_state;
-	serializeJsonPretty(doc, jsonBuffer);
-	Serial.println("Reporting the following to the broker:");
-	Serial.println(jsonBuffer);
-	mqttc.publish(READING_TOPIC, jsonBuffer);
-}
-
 void setup()
 {
 	Serial.begin(115200);
@@ -42,7 +31,10 @@ void loop()
 	// compare the current_state to its previous state
 	if (current_state != previous_state) {
 		previous_state = current_state;
-		report_reading_to_broker();
+		StaticJsonDocument<64> doc;
+		char jsonBuffer[64];
+		doc["switch"] = current_state;
+		report_reading_to_broker("switch", doc, jsonBuffer);
 	}
 	cny70_reading = analogRead(CNY70_PIN);
 	debug("La lectura es", cny70_reading, "debug");

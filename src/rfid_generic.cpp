@@ -4,23 +4,6 @@
 String lastPub[NUMBER_OF_READERS];
 bool should_publish;
 
-void report_rfid_to_broker()
-{
-	StaticJsonDocument<256> doc;
-	char jsonBuffer[256];
-	for (int i = 0; i < NUMBER_OF_READERS; i++) {
-		lastPub[i] = getUIDFromReadingStorage(i);
-		Serial.printf("Adding to the doc: \"rfid_%s\" : ", String(i));
-		Serial.println(lastPub[i]);
-		doc[String("rfid_" + String(i))] = lastPub[i];
-	}
-	serializeJsonPretty(doc, jsonBuffer);
-	Serial.println("Reporting the following to the mqtt broker:");
-	Serial.println(jsonBuffer);
-	String result = (mqttc.publish(READING_TOPIC, jsonBuffer)) ? "success publishing" : "failed publishing";
-	Serial.println(result);
-}
-
 void messageHandler(char* topic, byte* payload, unsigned int length)
 {
 	if (strcmp(topic, RESET_TOPIC) == 0) {
@@ -63,7 +46,15 @@ void loop()
 		}
 		if (should_publish) {
 			debug("New RFID detected, reporting to broker");
-			report_rfid_to_broker();
+			StaticJsonDocument<256> doc;
+			char jsonBuffer[256];
+			for (int i = 0; i < NUMBER_OF_READERS; i++) {
+				lastPub[i] = getUIDFromReadingStorage(i);
+				Serial.printf("Adding to the doc: \"rfid_%s\" : ", String(i));
+				Serial.println(lastPub[i]);
+				doc[String("rfid_" + String(i))] = lastPub[i];
+			}
+			report_reading_to_broker("rfid", doc, jsonBuffer);
 		} else {
 			Serial.println("Not publishing because the state is the same as before");
 		}
