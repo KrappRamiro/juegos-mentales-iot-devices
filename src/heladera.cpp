@@ -50,6 +50,7 @@ void loop()
 		Serial.printf("Key pressed: %c", myKey);
 		StaticJsonDocument<32> doc;
 		char jsonBuffer[32];
+		doc["key"] = myKey;
 		report_reading_to_broker("keypad", doc, jsonBuffer); // Publish the pressed key to AWS
 	}
 	local_delay(50);

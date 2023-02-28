@@ -124,6 +124,7 @@ void debug(char* message, int number, const char* subtopic)
 
 void report_reading_to_broker(const char* subtopic, JsonDocument& doc, char* jsonBuffer)
 {
+	// This function serializes the JsonDocument into the JsonBuffer and then publishes it to <THINGNAME>/readings/<subtopic>
 	serializeJson(doc, jsonBuffer, doc.size());
 	char topic[100] = "";
 	strcat(topic, THINGNAME);
