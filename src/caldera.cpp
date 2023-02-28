@@ -1,13 +1,5 @@
-#include "Arduino.h"
-#include "secrets/caldera_secrets.h"
-#include "secrets/shared_secrets.h"
 #include "utils/iot_utils.hpp"
 #include <Servo.h>
-#define SHADOW_GET_TOPIC "$aws/things/caldera/shadow/get"
-#define SHADOW_GET_ACCEPTED_TOPIC "$aws/things/caldera/shadow/get/accepted"
-#define SHADOW_UPDATE_TOPIC "$aws/things/caldera/shadow/update"
-#define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/caldera/shadow/update/accepted"
-#define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/caldera/shadow/update/delta"
 
 #define THRESHOLD 1500
 #define N_SENSORES_PROXIMIDAD 4
@@ -33,7 +25,7 @@ int pines_atenuadores[N_ATENUADORES] = {
 
 bool should_publish = false;
 bool estado_electroiman_caldera = true;
-bool estado_electroiman_tablero = true;
+bool estado_electroiman_tablero_electrico = true;
 
 Servo servo;
 int angle = 0;
@@ -61,53 +53,21 @@ struct Sensor {
 		previous = actual;
 	}
 } sensores_proximidad[N_SENSORES_PROXIMIDAD], atenuadores[N_ATENUADORES], interruptores, botones;
+
 void messageHandler(char* topic, byte* payload, unsigned int length)
 {
 	StaticJsonDocument<256> doc;
 	JsonObject state_desired;
 	deserializeJson(doc, payload); // Put the info from the payload into the JSON document
 	Serial.printf("MESSAGE HANDLER: Topic: %s\n", topic);
-	// ------------ RETRIEVING THE SHADOW DOCUMENT FROM AWS -------------//
-	if (strcmp(topic, SHADOW_GET_ACCEPTED_TOPIC) == 0)
-		state_desired = doc["state"]["desired"];
-	else if (strcmp(topic, SHADOW_UPDATE_DELTA_TOPIC) == 0)
-		state_desired = doc["state"];
-
-	estado_electroiman_caldera = state_desired["electroiman_caldera"] | estado_electroiman_caldera;
-	estado_electroiman_tablero = state_desired["electroiman_tablero"] | estado_electroiman_tablero;
-
-	Serial.printf("Estado electroiman caldera: %s\n", estado_electroiman_caldera ? "true" : "false");
-	Serial.printf("Estado electroiman tablero: %s\n", estado_electroiman_tablero ? "true" : "false");
-	digitalWrite(PIN_ELECTROIMAN_CALDERA, estado_electroiman_caldera);
-	digitalWrite(PIN_ELECTROIMAN_TABLERO, estado_electroiman_tablero);
-	flag_report_state_to_shadow = true;
-	// ------------------------------------------------------------------//
-}
-void report_state_to_shadow()
-{
-	StaticJsonDocument<512> doc;
-	char jsonBuffer[512];
-
-	JsonObject state_reported = doc["state"].createNestedObject("reported");
-
-	JsonArray state_reported_llaves_paso = state_reported.createNestedArray("llaves_paso");
-	for (Sensor sensor_proximidad : sensores_proximidad) {
-		state_reported_llaves_paso.add(sensor_proximidad.actual);
+	if (strcmp(topic, ELECTROIMAN_CALDERA_TOPIC) == 0) {
+		estado_electroiman_caldera = doc["status"];
+		digitalWrite(PIN_ELECTROIMAN_CALDERA, estado_electroiman_caldera);
 	}
-
-	JsonArray state_reported_atenuadores = state_reported.createNestedArray("atenuadores");
-	for (Sensor atenuador : atenuadores) {
-		state_reported_atenuadores.add(atenuador.actual);
+	if (strcmp(topic, ELECTROIMAN_TABLERO_ELECTRICO_TOPIC) == 0) {
+		estado_electroiman_tablero_electrico = doc["status"];
+		digitalWrite(PIN_ELECTROIMAN_TABLERO, estado_electroiman_tablero_electrico);
 	}
-	state_reported["botones"] = botones.actual;
-	state_reported["interruptores"] = interruptores.actual;
-	state_reported["electroiman_caldera"] = estado_electroiman_caldera;
-	state_reported["electroiman_tablero"] = estado_electroiman_tablero;
-	serializeJsonPretty(doc, jsonBuffer);
-	Serial.println("Reporting the following to the shadow:");
-	Serial.println(jsonBuffer);
-	client.publish(SHADOW_UPDATE_TOPIC, jsonBuffer);
-	flag_report_state_to_shadow = false;
 }
 void setup()
 {
@@ -118,7 +78,7 @@ void setup()
 #include "soc/soc.h"
 	WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
 #endif
-	connectAWS(WIFI_SSID, WIFI_PASSWORD, THINGNAME, AWS_CERT_CA, AWS_CERT_CRT, AWS_CERT_PRIVATE, AWS_IOT_ENDPOINT); // Connect to AWS
+	connect_mqtt_broker();
 	pinMode(PIN_ELECTROIMAN_CALDERA, OUTPUT);
 	pinMode(PIN_ELECTROIMAN_TABLERO, OUTPUT);
 	pinMode(PIN_BOTONES_CORRECTO, INPUT);
@@ -129,23 +89,13 @@ void setup()
 	atenuadores[0].max = 2200;
 	atenuadores[1].min = 1200;
 	atenuadores[1].max = 1600;
-	client.subscribe(SHADOW_GET_ACCEPTED_TOPIC, 1); // Subscribe to the topic that gets the initial state
-	client.subscribe(SHADOW_UPDATE_DELTA_TOPIC, 1); // Subscribe to the topic that updates the state every time it changes
-	client.setCallback(messageHandler);
-	// ----------- Get the Shadow document --------------//
-	StaticJsonDocument<8> doc;
-	char jsonBuffer[8];
-	serializeJson(doc, jsonBuffer);
-	client.publish(SHADOW_GET_TOPIC, jsonBuffer);
-	// --------------------------------------------------//
+	mqttc.setCallback(messageHandler);
+	mqttc.subscribe(ELECTROIMAN_CALDERA_TOPIC, 1);
+	mqttc.subscribe(ELECTROIMAN_TABLERO_ELECTRICO_TOPIC, 1);
 	servo.attach(PIN_SERVO);
 }
 void loop()
 {
-	now = time(nullptr); // The NTP server uses this, if you delete this, the connection to AWS no longer works
-	if (flag_report_state_to_shadow) {
-		report_state_to_shadow();
-	}
 #pragma region reading
 	// Analog read has a resolution of 12 bits ---> 0 to 4095
 	// -------------------- START OF READING SECTION --------------------
@@ -160,14 +110,10 @@ void loop()
 	interruptores.actual = (digitalRead(PIN_INTERRUPTORES_CORRECTO) == true && digitalRead(PIN_INTERRUPTORES_INCORRECTO) == false) ? true : false;
 
 	// ----------- Debug of the analog readings ------------ //
-	StaticJsonDocument<256> debugDoc;
-	char jsonBuffer[256];
-	debugDoc["sensor-0"] = sensores_proximidad[0].lectura;
-	debugDoc["sensor-1"] = sensores_proximidad[1].lectura;
-	debugDoc["sensor-2"] = sensores_proximidad[2].lectura;
-	debugDoc["sensor-3"] = sensores_proximidad[3].lectura;
-	serializeJson(debugDoc, jsonBuffer);
-	client.publish("caldera/debug", jsonBuffer);
+	debug("La lectura del sensor 0 es", sensores_proximidad[0].lectura, "debug");
+	debug("La lectura del sensor 1 es", sensores_proximidad[1].lectura, "debug");
+	debug("La lectura del sensor 2 es", sensores_proximidad[2].lectura, "debug");
+	debug("La lectura del sensor 3 es", sensores_proximidad[3].lectura, "debug");
 	// -------------------- END OF READING SECTION --------------------
 #pragma endregion reading
 
@@ -188,34 +134,33 @@ void loop()
 	// -------------------- START OF CHECK IF STATE CHANGED SECTION --------------------
 	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
 		if (sensores_proximidad[i].state_changed()) {
-			Serial.printf("The state of the sensor_proximidad with index %i has changed\n", i);
+			debug("Change in the sensor movimiento N", i);
 			sensores_proximidad[i].save_to_previous();
 			should_publish = true;
 		}
 	}
 	for (int i = 0; i < N_ATENUADORES; i++) {
 		if (atenuadores[i].state_changed()) {
-			Serial.printf("The state of the atenuador with index %i has changed\n", i);
+			debug("Change in the atenuador N", i);
 			should_publish = true;
 		}
 	}
 	if (interruptores.state_changed()) {
-		Serial.println("The state of the interruptores has changed");
+		debug("Change in the interruptores");
 		should_publish = true;
 	}
 	if (botones.state_changed()) {
-		Serial.println("The state of the buttons has changed");
+		debug("Change in the buttons");
 		should_publish = true;
 	}
-
 	// -------------------- END OF CHECK IF STATE CHANGED SECTION --------------------
 #pragma endregion changed
 
 #pragma region should_publish
-	// -------------------- START OF SAVE TO PREVIOUS SECTION --------------------
+	// -------------------- START OF SAVE TO PREVIOUS SECTION AND PUBLISHING --------------------
 	if (should_publish) {
 		should_publish = false;
-		Serial.println("Guardando cambios!!");
+		debug("Guardando cambios!!");
 		for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
 			sensores_proximidad[i].save_to_previous();
 		}
@@ -224,10 +169,25 @@ void loop()
 		}
 		botones.save_to_previous();
 		interruptores.save_to_previous();
-		report_state_to_shadow();
+
+		StaticJsonDocument<512> doc;
+		char jsonBuffer[512];
+		JsonArray doc_llaves_paso = doc.createNestedArray("llaves_paso");
+		for (Sensor sensor_proximidad : sensores_proximidad) {
+			doc_llaves_paso.add(sensor_proximidad.actual);
+		}
+		JsonArray doc_atenuadores = doc.createNestedArray("atenuadores");
+		for (Sensor atenuador : atenuadores) {
+			doc_atenuadores.add(atenuador.actual);
+		}
+		doc["botones"] = botones.actual;
+		doc["interruptores"] = interruptores.actual;
+		doc["electroiman_caldera"] = estado_electroiman_caldera;
+		doc["electroiman_tablero"] = estado_electroiman_tablero_electrico;
+		report_reading_to_broker("tablero_electrico", doc, jsonBuffer);
 	}
 #pragma endregion should_publish
-	// -------------------- END OF SAVE TO PREVIOUS SECTION --------------------
+	// -------------------- END OF SAVE TO PREVIOUS SECTION AND PUBLISHING --------------------
 
 #pragma region servo_control
 	// -------------------- START OF SERVO CONTROL SECTION --------------------
@@ -264,5 +224,5 @@ void loop()
 	Serial.println("-------------------------------------------------------------------;");
 	Serial.println("-------------------------------------------------------------------;");
 	Serial.println("-------------------------------------------------------------------;");
-	local_delay(1000); // retardo de 1 segundo entre lectura
+	local_delay(200); // retardo de 200ms entre lectura
 }

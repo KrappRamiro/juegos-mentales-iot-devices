@@ -1,48 +1,34 @@
-#include "Arduino.h"
-#include "secrets/shared_secrets.h"
-#include "secrets/soporte_cuchillos_secrets.h"
 #include "utils/iot_utils.hpp"
-#define SHADOW_GET_TOPIC "$aws/things/soporte_cuchillos/shadow/get"
-#define SHADOW_GET_ACCEPTED_TOPIC "$aws/things/soporte_cuchillos/shadow/get/accepted"
-#define SHADOW_UPDATE_TOPIC "$aws/things/soporte_cuchillos/shadow/update"
-#define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/soporte_cuchillos/shadow/update/accepted"
-#define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/soporte_cuchillos/shadow/update/delta"
 #define BUTTON_PIN D0
 bool current_state = false; // current state of the button
 bool previous_state = false;
 
-void report_state_to_shadow()
-{
-	StaticJsonDocument<256> doc;
-	char jsonBuffer[256];
-	JsonObject state_reported = doc["state"].createNestedObject("reported");
-	state_reported["estado_switch"] = current_state;
-	serializeJsonPretty(doc, jsonBuffer);
-	Serial.println("Reporting the following to the shadow:");
-	Serial.println(jsonBuffer);
-	client.publish(SHADOW_UPDATE_TOPIC, jsonBuffer);
-}
 void setup()
 {
 	Serial.begin(115200);
-	connectAWS(WIFI_SSID, WIFI_PASSWORD, THINGNAME, AWS_CERT_CA, AWS_CERT_CRT, AWS_CERT_PRIVATE, AWS_IOT_ENDPOINT); // Connect to AWS
+	while (!Serial)
+		; // Do nothing until serial connection is opened
+	connect_mqtt_broker();
 	pinMode(BUTTON_PIN, INPUT);
+	debug("Finished configuration");
 }
+
 void loop()
 {
-	now = time(nullptr); // The NTP server uses this, if you delete this, the connection to AWS no longer works
-	if (!client.connected()) {
-		reconnect(THINGNAME, "soporte_cuchillos/status");
+	if (!mqttc.connected()) {
+		reconnect();
 	}
 	// read the pushbutton input pin:
 	current_state = digitalRead(BUTTON_PIN);
-
 	// compare the current_state to its previous state
 	if (current_state != previous_state) {
 		previous_state = current_state;
-		report_state_to_shadow();
+		StaticJsonDocument<32> doc;
+		char jsonBuffer[32];
+		doc["switch"] = current_state;
+		report_reading_to_broker("switch", doc, jsonBuffer);
 	}
 
 	// Delay a little bit
-	local_delay(500);
+	local_delay(200);
 }

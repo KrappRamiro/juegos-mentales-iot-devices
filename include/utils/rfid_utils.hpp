@@ -1,5 +1,5 @@
-#ifndef multiple_rfid_utils
-#define multiple_rfid_utils
+#ifndef rfid_utils
+#define rfid_utils
 
 #include "Arduino.h"
 #include <MFRC522.h>
@@ -16,5 +16,5 @@ void printUID(byte* buffer);
 void printRFIDVersions();
 void printMultipleRFID();
 String getUIDFromReadingStorage(int readerNumber);
-String getSingleUID(MFRC522& rfid_mfrc522);
+void clearReadingStorage();
 #endif
