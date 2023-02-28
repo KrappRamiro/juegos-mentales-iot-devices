@@ -2,7 +2,6 @@
 #include <Keypad.h>
 #define PIN_ELECTROIMAN D8
 #define ELECTROIMAN_TOPIC "heladera/elements/electroiman"
-#define KEYPAD_TOPIC "heladera/readings/keypad"
 
 // -------------- KEYPAD CREATION ----------------- //
 const byte n_rows = 4;
@@ -30,16 +29,6 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	}
 }
 
-void report_reading_to_broker()
-{
-	StaticJsonDocument<32> doc;
-	char jsonBuffer[32];
-	doc["key"] = myKey;
-	serializeJson(doc, jsonBuffer);
-	const char* result = (mqttc.publish(KEYPAD_TOPIC, jsonBuffer)) ? "success publishing" : "failed publishing";
-	Serial.println(result);
-}
-
 void setup()
 {
 	Serial.begin(115200);
@@ -58,9 +47,10 @@ void loop()
 	}
 	myKey = myKeypad.getKey();
 	if (myKey != NULL) {
-		Serial.print("Key pressed: ");
-		Serial.println(myKey);
-		report_reading_to_broker(); // Publish the pressed key to AWS
+		Serial.printf("Key pressed: %c", myKey);
+		StaticJsonDocument<32> doc;
+		char jsonBuffer[32];
+		report_reading_to_broker("keypad", doc, jsonBuffer); // Publish the pressed key to AWS
 	}
 	local_delay(50);
 }
