@@ -1,18 +1,8 @@
-// Important note from the developer: Im sorry for this code, sometimes it gets awful, and does not follow any design pattern. Sorry
-#include "Arduino.h"
-#include "secrets/luz_secrets.h"
-#include "secrets/shared_secrets.h"
 #include "utils/iot_utils.hpp"
-#define SHADOW_GET_TOPIC "$aws/things/luz/shadow/get"
-#define SHADOW_GET_ACCEPTED_TOPIC "$aws/things/luz/shadow/get/accepted"
-#define SHADOW_UPDATE_TOPIC "$aws/things/luz/shadow/update"
-#define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/luz/shadow/update/accepted"
-#define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/luz/shadow/update/delta"
-#define LIGHT_SWITCH_TOPIC "luz/switch"
-
 // ------------------ Constants --------------------- //
 #define SWITCH_PIN A0
 #define N_RGB_LIGHTS 4
+#define LIGHTS_TOPIC "luz/elements/lights"
 //  -------------- Defaults values used for fallback ------------------ //
 #define DEFAULT_BRIGHTNESS_LEVEL 150
 #define DEFAULT_FLICKER_MIN_TIME 3000
@@ -29,7 +19,6 @@ unsigned long flicker_interval;
 unsigned long blackout_interval;
 // ---------------------- Functions declarations -------------------//
 void messageHandler(const char* topic, byte* payload, unsigned int length);
-void report_state_to_shadow();
 void update_local_values_from_doc();
 void flicker();
 void blackout();
@@ -273,50 +262,42 @@ void setup()
 {
 	Serial.begin(115200);
 	pinMode(SWITCH_PIN, INPUT);
-	// ------------------ Start of AWS connection ----------------------
-	connectAWS(WIFI_SSID, WIFI_PASSWORD, THINGNAME, AWS_CERT_CA, AWS_CERT_CRT, AWS_CERT_PRIVATE, AWS_IOT_ENDPOINT); // Connect to AWS
-	client.subscribe(SHADOW_GET_ACCEPTED_TOPIC, 1); // Subscribe to the topic that gets the initial state
-	client.subscribe(SHADOW_UPDATE_DELTA_TOPIC, 1); // Subscribe to the topic that updates the state every time it changes
-	client.setCallback(messageHandler);
-	StaticJsonDocument<8> doc;
-	char jsonBuffer[8];
-	serializeJson(doc, jsonBuffer);
-	client.publish(SHADOW_GET_TOPIC, jsonBuffer);
+	// ------------------ Start of broker connection ----------------------
+	connect_mqtt_broker();
+	mqttc.setCallback(messageHandler);
+	mqttc.subscribe(LIGHTS_TOPIC, 1);
 	Serial.print("Waiting for the initial config");
 	while (!flag_update_local_values_from_doc) {
 		Serial.print(".");
 		local_delay(100);
 	}
-	// ------------------ End of AWS connection ----------------------
+	// ------------------ End of broker connection ----------------------
 	// ---------------------- Set up the lights ------------------------ //
 	update_local_values_from_doc();
 	flag_update_local_values_from_doc = false;
 	for (int i = 0; i < N_RGB_LIGHTS; i++) {
 		rgb_lights[i].update_analog_pins();
 	}
-	report_state_to_shadow();
 	flicker_interval = random(config.get_flicker_min_time(), config.get_flicker_max_time());
 	blackout_interval = random(config.get_blackout_min_time(), config.get_blackout_max_time());
 	flicker_start_millis = millis();
 	blackout_start_millis = millis();
-	Serial.println("Configuration ended, starting to run the code");
+	debug("Configuration ended, starting to run the code");
 }
 void loop()
 {
 	if (flag_update_local_values_from_doc) {
 		flag_update_local_values_from_doc = false;
 		update_local_values_from_doc();
-		report_state_to_shadow();
 	}
 	Serial.println(analogRead(SWITCH_PIN));
 	if (analogRead(SWITCH_PIN) > 500) {
-		Serial.println(F("Detected the switch"));
-		// --------------- Report switch status to the shadow/update ------------------ //
-		StaticJsonDocument<8> emptyDoc;
-		char jsonBuffer[8];
-		serializeJsonPretty(emptyDoc, jsonBuffer);
-		const char* result = client.publish(LIGHT_SWITCH_TOPIC, jsonBuffer) ? "Light reporting success!!" : "Light reporting not successful";
-		Serial.println(result);
+		debug("Detected the switch");
+		// --------------- Report switch status ------------------ //
+		StaticJsonDocument<32> switchDoc;
+		char jsonBuffer[32];
+		switchDoc["switch"] = true;
+		report_reading_to_broker("switch", switchDoc, jsonBuffer);
 		// ---------------------------------------------------------------------------- //
 		local_delay(200); // I delay it a little bit so the player cant turn it on-off by holding the switch
 	}
@@ -363,16 +344,8 @@ void loop()
 void update_local_values_from_doc()
 {
 	// This functions get the values from the global defined StaticJsonDocument doc variable, and saves those values to the Config, RGBLight and UVLight object
-	Serial.println("Updating the values in the document so they can be published later");
-	JsonObject state_desired;
-	if (!doc["state"]["desired"].isNull()) { // Check if there is ["state"]["desired"] in the document
-		Serial.println("The document is a get/accepted type");
-		state_desired = doc["state"]["desired"];
-	} else {
-		Serial.println("The document is a update/delta type");
-		state_desired = doc["state"];
-	}
-	JsonObject doc_config = state_desired["config"];
+	debug("Updating the values in the document so they can be published later");
+	JsonObject doc_config = doc["config"];
 	// config.set_mode(doc_config["mode"] | config.get_mode()); // WARNING! Dont do this, for some reason it generates an error in ArduinoJson
 	// ---------------- Getting the config --------------------- //
 	if (doc_config["mode"] != nullptr) {
@@ -388,86 +361,31 @@ void update_local_values_from_doc()
 		doc_config["blackout_max_time"] | config.get_blackout_max_time());
 	// --------------------- Getting the values for the RGB Lights ------------------- //
 	int i = 0;
-	for (JsonObject rgb_light : state_desired["rgb_lights"].as<JsonArray>()) {
+	for (JsonObject rgb_light : doc["rgb_lights"].as<JsonArray>()) {
 		rgb_lights[i].set_brightness(
 			rgb_light["brightness"] | rgb_lights[i].get_brightness());
 		rgb_lights[i].set_flicker(rgb_light["flicker"] | rgb_lights[i].get_flicker());
 		i++;
 	}
 	// --------------------- Getting the values for the UV light ------------------- //
-	uv_light.set_brightness(state_desired["uv_light"]["brightness"] | uv_light.get_brightness());
-	uv_light.set_flicker(state_desired["uv_light"]["flicker"] | uv_light.get_flicker());
+	uv_light.set_brightness(doc["uv_light"]["brightness"] | uv_light.get_brightness());
+	uv_light.set_flicker(doc["uv_light"]["flicker"] | uv_light.get_flicker());
 	doc.clear(); // IMPORTANT: Remember to clear the Json Document each time the values are updated
-}
-
-void report_state_to_shadow()
-{
-	char jsonBuffer[1024];
-	JsonObject state_reported = doc["state"].createNestedObject("reported");
-	JsonObject doc_config = state_reported.createNestedObject("config");
-	doc_config["mode"] = config.get_mode();
-	doc_config["fixed_brightness"] = config.get_fixed_brightness();
-	doc_config["flicker_min_time"] = config.get_flicker_min_time();
-	doc_config["flicker_max_time"] = config.get_flicker_max_time();
-	doc_config["blackout_min_time"] = config.get_blackout_min_time();
-	doc_config["blackout_max_time"] = config.get_blackout_max_time();
-
-	JsonArray doc_rgb_lights = state_reported.createNestedArray("rgb_lights");
-
-	JsonObject rgb_lights_0 = doc_rgb_lights.createNestedObject();
-	rgb_lights_0["brightness"] = rgb_lights[0].get_brightness();
-	rgb_lights_0["flicker"] = rgb_lights[0].get_flicker();
-
-	JsonObject rgb_lights_1 = doc_rgb_lights.createNestedObject();
-	rgb_lights_1["brightness"] = rgb_lights[1].get_brightness();
-	rgb_lights_1["flicker"] = rgb_lights[1].get_flicker();
-
-	JsonObject rgb_lights_2 = doc_rgb_lights.createNestedObject();
-	rgb_lights_2["brightness"] = rgb_lights[2].get_brightness();
-	rgb_lights_2["flicker"] = rgb_lights[2].get_flicker();
-
-	JsonObject rgb_lights_6 = doc_rgb_lights.createNestedObject();
-	rgb_lights_6["brightness"] = rgb_lights[3].get_brightness();
-	rgb_lights_6["flicker"] = rgb_lights[3].get_flicker();
-
-	JsonObject doc_uv_light = state_reported.createNestedObject("uv_light");
-	doc_uv_light["brightness"] = uv_light.get_brightness();
-	doc_uv_light["flicker"] = uv_light.get_flicker();
-	serializeJsonPretty(doc, jsonBuffer);
-	Serial.println("Reporting the following to the shadow:");
-	Serial.println(jsonBuffer);
-	const char* result = client.publish(SHADOW_UPDATE_TOPIC, jsonBuffer) ? "Shadow reporting success!!" : "Shadow reporting not successful";
-	Serial.println(result);
 }
 
 void messageHandler(const char* topic, byte* payload, unsigned int length)
 {
+	// This function retrieves the document so it can be used later by update_local_values_from_doc()
 	Serial.printf("\nMESSAGE HANDLER: Topic: %s\n", topic);
-	// ------------ RETRIEVING THE SHADOW DOCUMENT FROM AWS -------------//
-	if (strcmp(topic, SHADOW_GET_ACCEPTED_TOPIC) == 0) {
+	if (strcmp(topic, LIGHTS_TOPIC) == 0) {
 		StaticJsonDocument<64> filter;
-		filter["state"]["desired"] = true;
-		DeserializationError error = deserializeJson(doc, (const byte*)payload, length, DeserializationOption::Filter(filter));
+		DeserializationError error = deserializeJson(doc, (const byte*)payload, length);
 		if (error) {
 			Serial.print(F("deserializeJson() failed: "));
 			Serial.println(error.f_str());
 			return;
 		}
 	}
-	// ------------------------------------------------------------------//
-
-	// ----------------- RETRIEVING THE DELTA FROM AWS ------------------//
-	if (strcmp(topic, SHADOW_UPDATE_DELTA_TOPIC) == 0) {
-		StaticJsonDocument<64> filter;
-		filter["state"] = true;
-		DeserializationError error = deserializeJson(doc, (const byte*)payload, length, DeserializationOption::Filter(filter));
-		if (error) {
-			Serial.print(F("deserializeJson() failed: "));
-			Serial.println(error.f_str());
-			return;
-		}
-	}
-	// ------------------------------------------------------------------//
 	flag_update_local_values_from_doc = true;
 }
 
