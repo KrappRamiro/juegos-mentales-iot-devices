@@ -9,7 +9,7 @@
 #define SHADOW_UPDATE_ACCEPTED_TOPIC "$aws/things/caldera/shadow/update/accepted"
 #define SHADOW_UPDATE_DELTA_TOPIC "$aws/things/caldera/shadow/update/delta"
 
-#define THRESHOLD 1500
+#define THRESHOLD 500
 #define N_SENSORES_PROXIMIDAD 4
 #define N_ATENUADORES 2
 

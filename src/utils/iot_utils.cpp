@@ -12,6 +12,7 @@ void connectAWS(const char* wifi_ssid, const char* wifi_password, const char* th
 	// Connect to wifi
 	Serial.printf("Connecting to Wi-Fi %s\n", wifi_ssid);
 	WiFi.mode(WIFI_STA);
+	WiFi.setHostname(thingname);
 	WiFi.begin(wifi_ssid, wifi_password);
 	while (WiFi.status() != WL_CONNECTED) {
 		delay(500);
