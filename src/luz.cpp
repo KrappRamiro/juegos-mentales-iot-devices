@@ -2,26 +2,19 @@
 // ------------------ Constants --------------------- //
 #define SWITCH_PIN A0
 #define N_RGB_LIGHTS 4
-#define LIGHTS_TOPIC "luz/elements/lights"
 //  -------------- Defaults values used for fallback ------------------ //
 #define DEFAULT_BRIGHTNESS_LEVEL 150
 #define DEFAULT_FLICKER_MIN_TIME 3000
 #define DEFAULT_FLICKER_MAX_TIME 5000
 #define DEFAULT_BLACKOUT_MIN_TIME 15000
 #define DEFAULT_BLACKOUT_MAX_TIME 30000
-// -------------------- Global variables ------------------- //
 int rn;
 StaticJsonDocument<1024> doc;
-bool flag_update_local_values_from_doc = false; // Represents if update_values should be called
 unsigned long flicker_start_millis = 0; // will store last time LED was updated
 unsigned long blackout_start_millis = 0; // will store last time LED was updated
 unsigned long flicker_interval;
 unsigned long blackout_interval;
-// ---------------------- Functions declarations -------------------//
-void messageHandler(const char* topic, byte* payload, unsigned int length);
-void update_local_values_from_doc();
-void flicker();
-void blackout();
+bool flag_update_local_values_from_doc = false; // Represents if update_values should be called
 
 #pragma region ClassDefinition
 
@@ -258,137 +251,6 @@ RGBLight rgb_lights[N_RGB_LIGHTS] = {
 };
 UVLight uv_light(D6);
 
-void setup()
-{
-	Serial.begin(115200);
-	pinMode(SWITCH_PIN, INPUT);
-	// ------------------ Start of broker connection ----------------------
-	connect_mqtt_broker();
-	mqttc.setCallback(messageHandler);
-	mqttc.subscribe(LIGHTS_TOPIC, 1);
-	Serial.print("Waiting for the initial config");
-	while (!flag_update_local_values_from_doc) {
-		Serial.print(".");
-		local_delay(100);
-	}
-	// ------------------ End of broker connection ----------------------
-	// ---------------------- Set up the lights ------------------------ //
-	update_local_values_from_doc();
-	flag_update_local_values_from_doc = false;
-	for (int i = 0; i < N_RGB_LIGHTS; i++) {
-		rgb_lights[i].update_analog_pins();
-	}
-	flicker_interval = random(config.get_flicker_min_time(), config.get_flicker_max_time());
-	blackout_interval = random(config.get_blackout_min_time(), config.get_blackout_max_time());
-	flicker_start_millis = millis();
-	blackout_start_millis = millis();
-	debug("Configuration ended, starting to run the code");
-}
-void loop()
-{
-	if (flag_update_local_values_from_doc) {
-		flag_update_local_values_from_doc = false;
-		update_local_values_from_doc();
-	}
-	Serial.println(analogRead(SWITCH_PIN));
-	if (analogRead(SWITCH_PIN) > 500) {
-		debug("Detected the switch");
-		// --------------- Report switch status ------------------ //
-		StaticJsonDocument<32> switchDoc;
-		char jsonBuffer[32];
-		switchDoc["switch"] = true;
-		report_reading_to_broker("switch", switchDoc, jsonBuffer);
-		// ---------------------------------------------------------------------------- //
-		local_delay(200); // I delay it a little bit so the player cant turn it on-off by holding the switch
-	}
-	if (config.get_mode() == "off") {
-		for (int i = 0; i < N_RGB_LIGHTS; i++) {
-			// README: I use analogWrite because using set_brightness would modify the value that is going to be reported to the shadow and that would create a mess
-			analogWrite(rgb_lights[i].get_red_pin(), 0);
-			analogWrite(rgb_lights[i].get_blue_pin(), 0);
-			analogWrite(rgb_lights[i].get_green_pin(), 0);
-		}
-	}
-	if (config.get_mode() == "fixed") {
-		for (int i = 0; i < N_RGB_LIGHTS; i++) {
-			// README: I use analogWrite because using set_brightness would modify the value that is going to be reported to the shadow and that would create a mess
-			analogWrite(rgb_lights[i].get_red_pin(), config.get_fixed_brightness());
-			analogWrite(rgb_lights[i].get_blue_pin(), config.get_fixed_brightness());
-			analogWrite(rgb_lights[i].get_green_pin(), config.get_fixed_brightness());
-		}
-	}
-	if (config.get_mode() == "panic") {
-		for (int i = 0; i < N_RGB_LIGHTS; i++) {
-			// README: I use analogWrite because using set_brightness would modify the value that is going to be reported to the shadow and that would create a mess
-			rgb_lights[i].set_color("red");
-		}
-	}
-	if (config.get_mode() == "scary") {
-		if (millis() > flicker_start_millis + flicker_interval) {
-			Serial.println(F("The interval for flickering has passed"));
-			flicker();
-			flicker_start_millis = millis();
-			flicker_interval = random(config.get_flicker_min_time(), config.get_flicker_max_time());
-		}
-		local_delay(50); // por las dudas
-		if (millis() > blackout_start_millis + blackout_interval) {
-			Serial.println("The interval for blackout has passed");
-			blackout();
-			blackout_start_millis = millis();
-			blackout_interval = random(config.get_blackout_min_time(), config.get_blackout_max_time());
-		}
-	}
-	local_delay(250);
-}
-
-void update_local_values_from_doc()
-{
-	// This functions get the values from the global defined StaticJsonDocument doc variable, and saves those values to the Config, RGBLight and UVLight object
-	debug("Updating the values in the document so they can be published later");
-	JsonObject doc_config = doc["config"];
-	// config.set_mode(doc_config["mode"] | config.get_mode()); // WARNING! Dont do this, for some reason it generates an error in ArduinoJson
-	// ---------------- Getting the config --------------------- //
-	if (doc_config["mode"] != nullptr) {
-		config.set_mode(doc_config["mode"].as<String>());
-	}
-	config.set_fixed_brightness(
-		doc_config["fixed_brightness"] | config.get_fixed_brightness());
-	config.set_flicker_time(
-		doc_config["flicker_min_time"] | config.get_flicker_min_time(),
-		doc_config["flicker_max_time"] | config.get_flicker_max_time());
-	config.set_blackout_time(
-		doc_config["blackout_min_time"] | config.get_blackout_min_time(),
-		doc_config["blackout_max_time"] | config.get_blackout_max_time());
-	// --------------------- Getting the values for the RGB Lights ------------------- //
-	int i = 0;
-	for (JsonObject rgb_light : doc["rgb_lights"].as<JsonArray>()) {
-		rgb_lights[i].set_brightness(
-			rgb_light["brightness"] | rgb_lights[i].get_brightness());
-		rgb_lights[i].set_flicker(rgb_light["flicker"] | rgb_lights[i].get_flicker());
-		i++;
-	}
-	// --------------------- Getting the values for the UV light ------------------- //
-	uv_light.set_brightness(doc["uv_light"]["brightness"] | uv_light.get_brightness());
-	uv_light.set_flicker(doc["uv_light"]["flicker"] | uv_light.get_flicker());
-	doc.clear(); // IMPORTANT: Remember to clear the Json Document each time the values are updated
-}
-
-void messageHandler(const char* topic, byte* payload, unsigned int length)
-{
-	// This function retrieves the document so it can be used later by update_local_values_from_doc()
-	Serial.printf("\nMESSAGE HANDLER: Topic: %s\n", topic);
-	if (strcmp(topic, LIGHTS_TOPIC) == 0) {
-		StaticJsonDocument<64> filter;
-		DeserializationError error = deserializeJson(doc, (const byte*)payload, length);
-		if (error) {
-			Serial.print(F("deserializeJson() failed: "));
-			Serial.println(error.f_str());
-			return;
-		}
-	}
-	flag_update_local_values_from_doc = true;
-}
-
 void flicker()
 {
 	// REMEMBER: For this functions, we dont modify the .brightness class member, we just use analogWrite with the PIN_N
@@ -491,4 +353,131 @@ void blackout()
 	// ------------ END OF reestablecer la luz totalmente ---------
 
 	Serial.println("Stopped blackout");
+}
+
+void update_local_values_from_doc()
+{
+	// This functions get the values from the global defined StaticJsonDocument doc variable, and saves those values to the Config, RGBLight and UVLight object
+	debug("Updating the values in the document so they can be published later");
+	// ---------------- Getting the config --------------------- //
+	if (doc["mode"] != nullptr) {
+		config.set_mode(doc["mode"].as<String>());
+	}
+	config.set_fixed_brightness(
+		doc["fixed_brightness"] | config.get_fixed_brightness());
+	config.set_flicker_time(
+		doc["flicker_min_time"] | config.get_flicker_min_time(),
+		doc["flicker_max_time"] | config.get_flicker_max_time());
+	config.set_blackout_time(
+		doc["blackout_min_time"] | config.get_blackout_min_time(),
+		doc["blackout_max_time"] | config.get_blackout_max_time());
+	// --------------------- Getting the values for the RGB Lights ------------------- //
+	for (int i = 0; i < N_RGB_LIGHTS; i++) {
+		rgb_lights[i].set_brightness(
+			doc["scary_brightness"] | rgb_lights[i].get_brightness());
+		rgb_lights[i].set_flicker(true);
+	}
+	// --------------------- Getting the values for the UV light ------------------- //
+	uv_light.set_brightness(doc["uv_light_active"] ? 255 : 0 | uv_light.get_brightness());
+	uv_light.set_flicker(true | uv_light.get_flicker());
+	doc.clear(); // IMPORTANT: Remember to clear the Json Document each time the values are updated
+}
+
+void messageHandler(const char* topic, byte* payload, unsigned int length)
+{
+	// This function retrieves the document so it can be used later by update_local_values_from_doc()
+	Serial.printf("\nMESSAGE HANDLER: Topic: %s\n", topic);
+	if (strcmp(topic, LUZ_CONFIG_TOPIC) == 0) {
+		StaticJsonDocument<64> filter;
+		DeserializationError error = deserializeJson(doc, (const byte*)payload, length);
+		if (error) {
+			Serial.print(F("deserializeJson() failed: "));
+			Serial.println(error.f_str());
+			return;
+		}
+	}
+	flag_update_local_values_from_doc = true;
+}
+
+void setup()
+{
+	Serial.begin(115200);
+	pinMode(SWITCH_PIN, INPUT);
+	// ------------------ Start of broker connection ----------------------
+	connect_mqtt_broker();
+	mqttc.subscribe(LUZ_CONFIG_TOPIC, 1);
+	mqttc.setCallback(messageHandler);
+	Serial.print("Waiting for the initial config");
+	while (!flag_update_local_values_from_doc) {
+		Serial.print(".");
+		local_delay(100);
+	}
+	// ------------------ End of broker connection ----------------------
+	// ---------------------- Set up the lights ------------------------ //
+	update_local_values_from_doc();
+	flag_update_local_values_from_doc = false;
+	for (int i = 0; i < N_RGB_LIGHTS; i++) {
+		rgb_lights[i].update_analog_pins();
+	}
+	flicker_interval = random(config.get_flicker_min_time(), config.get_flicker_max_time());
+	blackout_interval = random(config.get_blackout_min_time(), config.get_blackout_max_time());
+	flicker_start_millis = millis();
+	blackout_start_millis = millis();
+	debug("Configuration ended, starting to run the code");
+}
+void loop()
+{
+	if (flag_update_local_values_from_doc) {
+		flag_update_local_values_from_doc = false;
+		update_local_values_from_doc();
+	}
+	Serial.println(analogRead(SWITCH_PIN));
+	if (analogRead(SWITCH_PIN) > 500) {
+		debug("Detected the switch");
+		// --------------- Report switch status ------------------ //
+		StaticJsonDocument<32> switchDoc;
+		char jsonBuffer[32];
+		switchDoc["switch"] = true;
+		report_reading_to_broker("switch", switchDoc, jsonBuffer);
+		// ---------------------------------------------------------------------------- //
+		local_delay(200); // I delay it a little bit so the player cant turn it on-off by holding the switch
+	}
+	if (config.get_mode() == "off") {
+		for (int i = 0; i < N_RGB_LIGHTS; i++) {
+			// README: I use analogWrite because using set_brightness would modify the value that is going to be reported to the shadow and that would create a mess
+			analogWrite(rgb_lights[i].get_red_pin(), 0);
+			analogWrite(rgb_lights[i].get_blue_pin(), 0);
+			analogWrite(rgb_lights[i].get_green_pin(), 0);
+		}
+	}
+	if (config.get_mode() == "fixed") {
+		for (int i = 0; i < N_RGB_LIGHTS; i++) {
+			// README: I use analogWrite because using set_brightness would modify the value that is going to be reported to the shadow and that would create a mess
+			analogWrite(rgb_lights[i].get_red_pin(), config.get_fixed_brightness());
+			analogWrite(rgb_lights[i].get_blue_pin(), config.get_fixed_brightness());
+			analogWrite(rgb_lights[i].get_green_pin(), config.get_fixed_brightness());
+		}
+	}
+	if (config.get_mode() == "panic") {
+		for (int i = 0; i < N_RGB_LIGHTS; i++) {
+			// README: I use analogWrite because using set_brightness would modify the value that is going to be reported to the shadow and that would create a mess
+			rgb_lights[i].set_color("red");
+		}
+	}
+	if (config.get_mode() == "scary") {
+		if (millis() > flicker_start_millis + flicker_interval) {
+			Serial.println(F("The interval for flickering has passed"));
+			flicker();
+			flicker_start_millis = millis();
+			flicker_interval = random(config.get_flicker_min_time(), config.get_flicker_max_time());
+		}
+		delay(50); // por las dudas
+		if (millis() > blackout_start_millis + blackout_interval) {
+			Serial.println("The interval for blackout has passed");
+			blackout();
+			blackout_start_millis = millis();
+			blackout_interval = random(config.get_blackout_min_time(), config.get_blackout_max_time());
+		}
+	}
+	local_delay(100);
 }
