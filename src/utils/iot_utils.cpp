@@ -13,6 +13,7 @@ void connect_mqtt_broker()
 {
 	Serial.printf("Connecting to Wi-Fi %s\n", WIFI_SSID);
 	WiFi.mode(WIFI_STA);
+	WiFi.setHostname(THINGNAME);
 	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 	while (WiFi.status() != WL_CONNECTED) {
 		delay(250);
