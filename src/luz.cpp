@@ -437,7 +437,8 @@ void loop()
 		StaticJsonDocument<32> switchDoc;
 		char jsonBuffer[32];
 		switchDoc["switch"] = true;
-		report_reading_to_broker("switch", switchDoc, jsonBuffer);
+		serializeJson(switchDoc, jsonBuffer);
+		report_reading_to_broker("switch", jsonBuffer);
 		// ---------------------------------------------------------------------------- //
 		local_delay(200); // I delay it a little bit so the player cant turn it on-off by holding the switch
 	}

@@ -13,7 +13,9 @@ void connect_mqtt_broker()
 {
 	Serial.printf("Connecting to Wi-Fi %s\n", WIFI_SSID);
 	WiFi.mode(WIFI_STA);
-	WiFi.setHostname(THINGNAME);
+	char hostname[40] = "ESP_";
+	strcat(hostname, THINGNAME);
+	WiFi.setHostname(hostname);
 	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 	while (WiFi.status() != WL_CONNECTED) {
 		delay(250);
@@ -28,6 +30,7 @@ void connect_mqtt_broker()
 		Serial.printf("The client %s attempts to connect to the mqtt broker\n", THINGNAME);
 		if (mqttc.connect(THINGNAME)) {
 			Serial.println("Successfully connected to MQTT broker");
+			debug("Connected to the broker!");
 		} else {
 			Serial.printf("failed with rc=%i\n", mqttc.state());
 			delay(2000);
@@ -121,10 +124,9 @@ void debug(char* message, int number, const char* subtopic)
 	mqttc.publish(topic, message);
 }
 
-void report_reading_to_broker(const char* subtopic, JsonDocument& doc, char* jsonBuffer)
+void report_reading_to_broker(const char* subtopic, char* jsonBuffer)
 {
 	// This function serializes the JsonDocument into the JsonBuffer and then publishes it to <THINGNAME>/readings/<subtopic>
-	serializeJson(doc, jsonBuffer, doc.size());
 	char topic[100] = "";
 	strcat(topic, THINGNAME);
 	strcat(topic, "/readings/");

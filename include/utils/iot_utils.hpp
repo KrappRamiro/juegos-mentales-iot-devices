@@ -20,5 +20,5 @@ void local_yield();
 void local_delay(unsigned long millisecs);
 void debug(const char* message, const char* subtopic = "info");
 void debug(char* message, int number, const char* subtopic = "info");
-void report_reading_to_broker(const char* subtopic, JsonDocument& doc, char* jsonBuffer);
+void report_reading_to_broker(const char* subtopic, char* jsonBuffer);
 #endif
