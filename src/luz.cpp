@@ -388,7 +388,6 @@ void messageHandler(const char* topic, byte* payload, unsigned int length)
 	// This function retrieves the document so it can be used later by update_local_values_from_doc()
 	Serial.printf("\nMESSAGE HANDLER: Topic: %s\n", topic);
 	if (strcmp(topic, LUZ_CONFIG_TOPIC) == 0) {
-		StaticJsonDocument<64> filter;
 		DeserializationError error = deserializeJson(doc, (const byte*)payload, length);
 		if (error) {
 			Serial.print(F("deserializeJson() failed: "));

@@ -28,8 +28,7 @@ void connect_mqtt_broker()
 		if (mqttc.connect(THINGNAME)) {
 			Serial.println("Successfully connected to MQTT broker");
 		} else {
-			Serial.print("failed with rc=");
-			Serial.print(mqttc.state());
+			Serial.printf("failed with rc=%i\n", mqttc.state());
 			delay(2000);
 		}
 	}
