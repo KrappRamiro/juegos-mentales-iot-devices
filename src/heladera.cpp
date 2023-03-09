@@ -52,7 +52,8 @@ void loop()
 		StaticJsonDocument<32> doc;
 		char jsonBuffer[32];
 		doc["key"] = myKey;
-		report_reading_to_broker("keypad", doc, jsonBuffer); // Publish the pressed key to AWS
+		serializeJson(doc, jsonBuffer);
+		report_reading_to_broker("keypad", jsonBuffer); // Publish the pressed key to AWS
 	}
 	local_delay(50);
 }

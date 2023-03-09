@@ -34,7 +34,8 @@ void loop()
 		StaticJsonDocument<64> doc;
 		char jsonBuffer[64];
 		doc["switch"] = current_state;
-		report_reading_to_broker("switch", doc, jsonBuffer);
+		serializeJson(doc, jsonBuffer);
+		report_reading_to_broker("switch", jsonBuffer);
 	}
 	cny70_reading = analogRead(CNY70_PIN);
 	debug("La lectura es", cny70_reading, "debug");

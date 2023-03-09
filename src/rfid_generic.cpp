@@ -54,7 +54,8 @@ void loop()
 				Serial.println(lastPub[i]);
 				doc[String("rfid_" + String(i))] = lastPub[i];
 			}
-			report_reading_to_broker("rfid", doc, jsonBuffer);
+			serializeJson(doc, jsonBuffer);
+			report_reading_to_broker("rfid", jsonBuffer);
 		} else {
 			Serial.println("Not publishing because the state is the same as before");
 		}

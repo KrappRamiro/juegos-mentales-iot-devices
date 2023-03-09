@@ -170,8 +170,6 @@ void loop()
 		botones.save_to_previous();
 		interruptores.save_to_previous();
 
-		StaticJsonDocument<512> doc;
-		char jsonBuffer[512];
 		JsonArray doc_llaves_paso = doc.createNestedArray("llaves_paso");
 		for (Sensor sensor_proximidad : sensores_proximidad) {
 			doc_llaves_paso.add(sensor_proximidad.actual);
@@ -184,7 +182,10 @@ void loop()
 		doc["interruptores"] = interruptores.actual;
 		doc["electroiman_caldera"] = estado_electroiman_caldera;
 		doc["electroiman_tablero"] = estado_electroiman_tablero_electrico;
-		report_reading_to_broker("tablero_electrico", doc, jsonBuffer);
+		StaticJsonDocument<512> doc;
+		char jsonBuffer[512];
+		serializeJson(doc, jsonBuffer);
+		report_reading_to_broker("tablero_electrico", jsonBuffer);
 	}
 #pragma endregion should_publish
 	// -------------------- END OF SAVE TO PREVIOUS SECTION AND PUBLISHING --------------------

@@ -26,7 +26,8 @@ void loop()
 		StaticJsonDocument<32> doc;
 		char jsonBuffer[32];
 		doc["switch"] = current_state;
-		report_reading_to_broker("switch", doc, jsonBuffer);
+		serializeJson(doc, jsonBuffer);
+		report_reading_to_broker("switch", jsonBuffer);
 	}
 
 	// Delay a little bit
