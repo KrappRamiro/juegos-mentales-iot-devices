@@ -13,12 +13,25 @@ extern time_t now;
 extern time_t nowish;
 extern WiFiClient esp_client;
 extern PubSubClient mqttc;
+
+class MQTTDebug {
+	// my variables declaration here
+	bool should_debug = false;
+	int loop_counter = 0; // this starts at 0, and should count the number of loops
+public:
+	int requiered_loops = 0;
+	void loop(); // should be called ONCE at the end of void loop
+	MQTTDebug(); // The constructor here
+	// function declarations here
+	void message(const char* message, const char* subtopic = "info");
+	void message_number(const char* message, int number, const char* subtopic = "info");
+};
+extern MQTTDebug debugger;
+
 void connect_mqtt_broker();
 void reconnect();
 void NTPConnect();
 void local_yield();
 void local_delay(unsigned long millisecs);
-void debug(const char* message, const char* subtopic = "info");
-void debug(char* message, int number, const char* subtopic = "info");
 void report_reading_to_broker(const char* subtopic, char* jsonBuffer);
 #endif

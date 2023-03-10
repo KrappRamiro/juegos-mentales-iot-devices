@@ -1,6 +1,7 @@
 #include "utils/iot_utils.hpp"
 #include "secrets/shared_secrets.h"
 #ifdef ESP32
+#include "iot_utils.hpp"
 #include "soc/rtc_wdt.h"
 #endif
 time_t now;
@@ -8,6 +9,62 @@ time_t nowish = 1510592825;
 // The reason why net and client are both in the header and in the source: https://stackoverflow.com/questions/74729454/platformio-c-multiple-multiple-definition-of
 WiFiClient esp_client = WiFiClient();
 PubSubClient mqttc(esp_client);
+MQTTDebug debugger = MQTTDebug();
+
+#pragma region MQTTDebug_class
+MQTTDebug::MQTTDebug()
+{ // The constructor of MQTTDebug
+}
+
+void MQTTDebug::loop()
+{
+	loop_counter += 1;
+	if (loop_counter == requiered_loops) {
+		// if the loop counter has reached the point of requiered loops, debug for the following loop
+		should_debug = true;
+	} else if (loop_counter > requiered_loops) {
+		// if the loop counter has passed the point of requiered loops, stop debugging and reset the counter
+		should_debug = false;
+		loop_counter = 0;
+	}
+}
+void MQTTDebug::message(const char* message, const char* subtopic)
+{
+	// Debug para solamente texto
+	if (!should_debug) {
+		return;
+	}
+	Serial.printf("%s: %s\n", subtopic, message);
+	// THINGNAME / debug / subtopic
+	char topic[100] = "";
+	strcat(topic, THINGNAME);
+	strcat(topic, "/debug/");
+	strcat(topic, subtopic);
+	mqttc.publish(topic, message);
+}
+
+void MQTTDebug::message_number(const char* message, int number, const char* subtopic)
+{
+	if (!should_debug) {
+		return;
+	}
+	// Debug que soporta printear un numero
+	// Appendeo de number a message
+	char integer_string[32];
+	char new_msg[128];
+	strcpy(new_msg, message); // copy the content of message to a new string
+	sprintf(integer_string, "%i", number); // put the number inside an string
+	strcat(new_msg, integer_string); // message + number
+
+	Serial.printf("%s: %s\n", subtopic, new_msg);
+	// THINGNAME / debug / subtopic
+	char topic[100] = "";
+	strcat(topic, THINGNAME);
+	strcat(topic, "/debug/");
+	strcat(topic, subtopic);
+	mqttc.publish(topic, new_msg);
+}
+#pragma endregion MQTTDebug_class
 
 void connect_mqtt_broker()
 {
@@ -30,7 +87,7 @@ void connect_mqtt_broker()
 		Serial.printf("The client %s attempts to connect to the mqtt broker\n", THINGNAME);
 		if (mqttc.connect(THINGNAME)) {
 			Serial.println("Successfully connected to MQTT broker");
-			debug("Connected to the broker!");
+			debugger.message("Connected to the broker!");
 		} else {
 			Serial.printf("failed with rc=%i\n", mqttc.state());
 			delay(2000);
@@ -95,35 +152,6 @@ void local_delay(unsigned long millisecs)
 		}
 	}
 }
-void debug(const char* message, const char* subtopic)
-{
-	// Debug para solamente texto
-	Serial.printf("%s: %s\n", subtopic, message);
-	// THINGNAME / debug / subtopic
-	char topic[100] = "";
-	strcat(topic, THINGNAME);
-	strcat(topic, "/debug/");
-	strcat(topic, subtopic);
-	mqttc.publish(topic, message);
-}
-
-void debug(char* message, int number, const char* subtopic)
-{
-	// Debug que soporta printear un numero
-	// Appendeo de number a message
-	char integer_string[32];
-	sprintf(integer_string, "%i", number);
-	strcat(message, integer_string);
-
-	Serial.printf("%s: %s\n", subtopic, message);
-	// THINGNAME / debug / subtopic
-	char topic[100] = "";
-	strcat(topic, THINGNAME);
-	strcat(topic, "/debug/");
-	strcat(topic, subtopic);
-	mqttc.publish(topic, message);
-}
-
 void report_reading_to_broker(const char* subtopic, char* jsonBuffer)
 {
 	// This function serializes the JsonDocument into the JsonBuffer and then publishes it to <THINGNAME>/readings/<subtopic>
