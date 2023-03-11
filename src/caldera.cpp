@@ -93,6 +93,8 @@ void setup()
 	mqttc.subscribe(ELECTROIMAN_CALDERA_TOPIC, 1);
 	mqttc.subscribe(ELECTROIMAN_TABLERO_ELECTRICO_TOPIC, 1);
 	servo.attach(PIN_SERVO);
+	debugger.message("Finished configuration");
+	debugger.requiered_loops = 10;
 }
 void loop()
 {
@@ -110,10 +112,10 @@ void loop()
 	interruptores.actual = (digitalRead(PIN_INTERRUPTORES_CORRECTO) == true && digitalRead(PIN_INTERRUPTORES_INCORRECTO) == false) ? true : false;
 
 	// ----------- Debug of the analog readings ------------ //
-	debug("La lectura del sensor 0 es", sensores_proximidad[0].lectura, "debug");
-	debug("La lectura del sensor 1 es", sensores_proximidad[1].lectura, "debug");
-	debug("La lectura del sensor 2 es", sensores_proximidad[2].lectura, "debug");
-	debug("La lectura del sensor 3 es", sensores_proximidad[3].lectura, "debug");
+	debugger.message_number("La lectura del sensor 0 es", sensores_proximidad[0].lectura, "debug");
+	debugger.message_number("La lectura del sensor 1 es", sensores_proximidad[1].lectura, "debug");
+	debugger.message_number("La lectura del sensor 2 es", sensores_proximidad[2].lectura, "debug");
+	debugger.message_number("La lectura del sensor 3 es", sensores_proximidad[3].lectura, "debug");
 	// -------------------- END OF READING SECTION --------------------
 #pragma endregion reading
 
@@ -134,23 +136,23 @@ void loop()
 	// -------------------- START OF CHECK IF STATE CHANGED SECTION --------------------
 	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
 		if (sensores_proximidad[i].state_changed()) {
-			debug("Change in the sensor movimiento N", i);
+			debugger.message_number("Change in the sensor movimiento N", i);
 			sensores_proximidad[i].save_to_previous();
 			should_publish = true;
 		}
 	}
 	for (int i = 0; i < N_ATENUADORES; i++) {
 		if (atenuadores[i].state_changed()) {
-			debug("Change in the atenuador N", i);
+			debugger.message_number("Change in the atenuador N", i);
 			should_publish = true;
 		}
 	}
 	if (interruptores.state_changed()) {
-		debug("Change in the interruptores");
+		debugger.message("Change in the interruptores");
 		should_publish = true;
 	}
 	if (botones.state_changed()) {
-		debug("Change in the buttons");
+		debugger.message("Change in the buttons");
 		should_publish = true;
 	}
 	// -------------------- END OF CHECK IF STATE CHANGED SECTION --------------------
@@ -160,7 +162,7 @@ void loop()
 	// -------------------- START OF SAVE TO PREVIOUS SECTION AND PUBLISHING --------------------
 	if (should_publish) {
 		should_publish = false;
-		debug("Guardando cambios!!");
+		debugger.message("Guardando cambios y publicando");
 		for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
 			sensores_proximidad[i].save_to_previous();
 		}
@@ -170,6 +172,7 @@ void loop()
 		botones.save_to_previous();
 		interruptores.save_to_previous();
 
+		StaticJsonDocument<512> doc;
 		JsonArray doc_llaves_paso = doc.createNestedArray("llaves_paso");
 		for (Sensor sensor_proximidad : sensores_proximidad) {
 			doc_llaves_paso.add(sensor_proximidad.actual);
@@ -182,7 +185,6 @@ void loop()
 		doc["interruptores"] = interruptores.actual;
 		doc["electroiman_caldera"] = estado_electroiman_caldera;
 		doc["electroiman_tablero"] = estado_electroiman_tablero_electrico;
-		StaticJsonDocument<512> doc;
 		char jsonBuffer[512];
 		serializeJson(doc, jsonBuffer);
 		report_reading_to_broker("tablero_electrico", jsonBuffer);
@@ -223,7 +225,6 @@ void loop()
 	// -------------------- END OF SERVO CONTROL SECTION --------------------
 #pragma endregion servo_control
 	Serial.println("-------------------------------------------------------------------;");
-	Serial.println("-------------------------------------------------------------------;");
-	Serial.println("-------------------------------------------------------------------;");
-	local_delay(200); // retardo de 200ms entre lectura
+	local_delay(100); // retardo de 100ms entre lectura
+	debugger.loop();
 }

@@ -37,7 +37,8 @@ void setup()
 	mqttc.subscribe(ELECTROIMAN_2_TOPIC, 1);
 	mqttc.subscribe(ELECTROIMAN_3_TOPIC, 1);
 	mqttc.subscribe(ELECTROIMAN_4_TOPIC, 1);
-	debug("Finished setup");
+	debugger.message("Finished setup");
+	debugger.requiered_loops = 5;
 }
 
 void loop()
@@ -46,4 +47,5 @@ void loop()
 		reconnect();
 	}
 	local_delay(200);
+	debugger.loop();
 }

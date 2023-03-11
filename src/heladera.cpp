@@ -38,7 +38,8 @@ void setup()
 	connect_mqtt_broker();
 	mqttc.setCallback(messageHandler);
 	mqttc.subscribe(ELECTROIMAN_TOPIC, 1); // Subscribe to the topic that updates the state every time it changes
-	debug("Finished configuration");
+	debugger.message("Finished configuration");
+	debugger.requiered_loops = 20
 }
 
 void loop()
@@ -56,4 +57,5 @@ void loop()
 		report_reading_to_broker("keypad", jsonBuffer); // Publish the pressed key to AWS
 	}
 	local_delay(50);
+	debugger.loop();
 }

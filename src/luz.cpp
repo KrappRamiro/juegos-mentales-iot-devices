@@ -358,7 +358,7 @@ void blackout()
 void update_local_values_from_doc()
 {
 	// This functions get the values from the global defined StaticJsonDocument doc variable, and saves those values to the Config, RGBLight and UVLight object
-	debug("Updating the values in the document so they can be published later");
+	debugger.message("Updating the values in the document so they can be published later");
 	// ---------------- Getting the config --------------------- //
 	if (doc["mode"] != nullptr) {
 		config.set_mode(doc["mode"].as<String>());
@@ -422,7 +422,8 @@ void setup()
 	blackout_interval = random(config.get_blackout_min_time(), config.get_blackout_max_time());
 	flicker_start_millis = millis();
 	blackout_start_millis = millis();
-	debug("Configuration ended, starting to run the code");
+	debugger.message("Configuration ended, starting to run the code");
+	debugger.requiered_loops = 10;
 }
 void loop()
 {
@@ -432,7 +433,7 @@ void loop()
 	}
 	Serial.println(analogRead(SWITCH_PIN));
 	if (analogRead(SWITCH_PIN) > 500) {
-		debug("Detected the switch");
+		debugger.message("Detected the switch");
 		// --------------- Report switch status ------------------ //
 		StaticJsonDocument<32> switchDoc;
 		char jsonBuffer[32];
@@ -480,4 +481,5 @@ void loop()
 		}
 	}
 	local_delay(100);
+	debugger.loop();
 }

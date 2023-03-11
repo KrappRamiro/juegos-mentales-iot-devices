@@ -66,7 +66,8 @@ void setup()
 		local_delay(150);
 		Serial.print("*");
 	}
-	debug("Finished setup");
+	debugger.message("Finished setup");
+	debugger.requiered_loops = 5;
 }
 void loop()
 {
@@ -84,20 +85,21 @@ void loop()
 			high_low(PAUSE_PIN);
 	}
 	if (vol_up_flag) {
-		debug("Volume UP");
+		debugger.message("Volume UP");
 		high_low(VOL_UP_PIN);
 		vol_up_flag = false;
 	}
 	if (vol_down_flag) {
-		debug("Volume DOWN");
+		debugger.message("Volume DOWN");
 		high_low(VOL_DOWN_PIN);
 		vol_down_flag = false;
 	}
 	if (pause_flag) {
-		debug("Pausing the music");
+		debugger.message("Pausing the music");
 		high_low(PAUSE_PIN);
 		pause_flag = false;
 	}
 	// Delay a little bit
 	local_delay(200);
+	debugger.loop();
 }

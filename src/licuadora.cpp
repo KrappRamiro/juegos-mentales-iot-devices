@@ -48,6 +48,6 @@ void loop()
 		analogWrite(MOSFET_PIN, 0);
 		debugger.message("MOSFET OFF");
 	}
-	debugger.loop();
 	local_delay(100);
+	debugger.loop();
 }
