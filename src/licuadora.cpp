@@ -40,13 +40,13 @@ void loop()
 		report_reading_to_broker("switch", jsonBuffer);
 	}
 	cny70_reading = analogRead(CNY70_PIN);
-	debugger.message_number("La lectura es ", cny70_reading, "debug");
+	debugger.message_number("La lectura es ", cny70_reading, "debug", true);
 	if ((cny70_reading) > THRESHOLD) {
 		analogWrite(MOSFET_PIN, 255);
-		debugger.message("MOSFET ON");
+		debugger.message("MOSFET ON", "info", true);
 	} else {
 		analogWrite(MOSFET_PIN, 0);
-		debugger.message("MOSFET OFF");
+		debugger.message("MOSFET OFF", "info", true);
 	}
 	local_delay(100);
 	debugger.loop();

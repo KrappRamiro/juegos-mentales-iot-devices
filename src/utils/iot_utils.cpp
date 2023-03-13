@@ -1,3 +1,14 @@
+/**
+ * @file iot_utils.cpp
+ * @author Krapp Ramiro (krappramiro@disroot.org)
+ * @brief File used for defining all the utils function that are used in the usage of MQTT, also used to define the MQTTDebug class.
+ * Here a WifiClient instance, a PubSubClient instance and a MQTTDebug instance are also created.
+ * @version 1.0
+ * @date 2023-03-13
+ *
+ * @copyright Copyright (c) 2023
+ *
+ */
 #include "utils/iot_utils.hpp"
 #include "secrets/shared_secrets.h"
 #ifdef ESP32
@@ -12,26 +23,30 @@ PubSubClient mqttc(esp_client);
 MQTTDebug debugger = MQTTDebug();
 
 #pragma region MQTTDebug_class
+/// @brief The default constructor for MQTTDebug class
 MQTTDebug::MQTTDebug()
-{ // The constructor of MQTTDebug
+{
 }
-
+/// @brief This function should be called at the end of every loop in your code
 void MQTTDebug::loop()
 {
 	loop_counter += 1;
 	if (loop_counter == requiered_loops) {
 		// if the loop counter has reached the point of requiered loops, debug for the following loop
-		should_debug = true;
+		should_debug_polling = true;
 	} else if (loop_counter > requiered_loops) {
 		// if the loop counter has passed the point of requiered loops, stop debugging and reset the counter
-		should_debug = false;
+		should_debug_polling = false;
 		loop_counter = 0;
 	}
 }
-void MQTTDebug::message(const char* message, const char* subtopic)
+/// @brief Generates a message that is published to the MQTT broker and Serial printed. This will be published at <THINGNAME>/debug/subtopic
+/// @param message The message that is going to be published
+/// @param subtopic The subtopic where you want to publish the message. Optional parameter, defaults to "info"
+void MQTTDebug::message(const char* message, const char* subtopic, bool polling)
 {
 	// Debug para solamente texto
-	if (!should_debug) {
+	if (polling && !should_debug_polling) {
 		return;
 	}
 	Serial.printf("%s: %s\n", subtopic, message);
@@ -43,9 +58,9 @@ void MQTTDebug::message(const char* message, const char* subtopic)
 	mqttc.publish(topic, message);
 }
 
-void MQTTDebug::message_number(const char* message, int number, const char* subtopic)
+void MQTTDebug::message_number(const char* message, int number, const char* subtopic, bool polling)
 {
-	if (!should_debug) {
+	if (polling && !should_debug_polling) {
 		return;
 	}
 	// Debug que soporta printear un numero
@@ -68,6 +83,15 @@ void MQTTDebug::message_number(const char* message, int number, const char* subt
 
 void connect_mqtt_broker()
 {
+	/**
+	 * @brief Connects to the MQTT broker. Expects the following to be defined via includes or compile flags (-D platformIO flag):
+	 * WIFI_SSID
+	 * THINGNAME
+	 * WIFI_PASSWORD
+	 * MQTT_BROKER
+	 * MQTT_PORT
+	 *
+	 */
 	Serial.printf("Connecting to Wi-Fi %s\n", WIFI_SSID);
 	WiFi.mode(WIFI_STA);
 	char hostname[40] = "ESP_";

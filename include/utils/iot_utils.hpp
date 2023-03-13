@@ -16,15 +16,16 @@ extern PubSubClient mqttc;
 
 class MQTTDebug {
 	// my variables declaration here
-	bool should_debug = false;
 	int loop_counter = 0; // this starts at 0, and should count the number of loops
+	bool should_debug_polling = false;
+
 public:
 	int requiered_loops = 0;
 	void loop(); // should be called ONCE at the end of void loop
 	MQTTDebug(); // The constructor here
 	// function declarations here
-	void message(const char* message, const char* subtopic = "info");
-	void message_number(const char* message, int number, const char* subtopic = "info");
+	void message(const char* message, const char* subtopic = "info", bool polling = false);
+	void message_number(const char* message, int number, const char* subtopic = "info", bool polling = false);
 };
 extern MQTTDebug debugger;
 
