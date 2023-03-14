@@ -66,7 +66,7 @@ void MQTTDebug::message_number(const char* message, int number, const char* subt
 	// Debug que soporta printear un numero
 	// Appendeo de number a message
 	char integer_string[32];
-	char new_msg[128];
+	char new_msg[200];
 	strcpy(new_msg, message); // copy the content of message to a new string
 	sprintf(integer_string, "%i", number); // put the number inside an string
 	strcat(new_msg, integer_string); // message + number
@@ -79,6 +79,24 @@ void MQTTDebug::message_number(const char* message, int number, const char* subt
 	strcat(topic, subtopic);
 	mqttc.publish(topic, new_msg);
 }
+void MQTTDebug::message_string(const char* message, const char* string, const char* subtopic, bool polling)
+{
+	if (polling && !should_debug_polling) {
+		return;
+	}
+	char new_msg[200];
+	strcpy(new_msg, message); // copy the content of message to a new string
+	strcat(new_msg, string); // message + number
+
+	Serial.printf("%s: %s\n", subtopic, new_msg);
+	// THINGNAME / debug / subtopic
+	char topic[100] = "";
+	strcat(topic, THINGNAME);
+	strcat(topic, "/debug/");
+	strcat(topic, subtopic);
+	mqttc.publish(topic, new_msg);
+}
+
 #pragma endregion MQTTDebug_class
 
 void connect_mqtt_broker()
