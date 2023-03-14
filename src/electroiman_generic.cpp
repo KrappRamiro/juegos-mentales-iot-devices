@@ -7,19 +7,43 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	Serial.printf("MESSAGE HANDLER: Topic: %s\n", topic);
 	if (strcmp(topic, ELECTROIMAN_1_TOPIC) == 0) {
 		bool status = doc["status"];
-		digitalWrite(ELECTROIMAN_PIN_1, status);
+		if (status) {
+			debugger.message("Desactivando electroiman 1");
+			digitalWrite(ELECTROIMAN_PIN_1, LOW);
+		} else {
+			debugger.message("Activando electroiman 1");
+			digitalWrite(ELECTROIMAN_PIN_1, HIGH);
+		}
 	}
 	if (strcmp(topic, ELECTROIMAN_2_TOPIC) == 0) {
 		bool status = doc["status"];
-		digitalWrite(ELECTROIMAN_PIN_2, status);
+		if (status) {
+			debugger.message("Desactivando electroiman 2");
+			digitalWrite(ELECTROIMAN_PIN_2, LOW);
+		} else {
+			debugger.message("Activando electroiman 2");
+			digitalWrite(ELECTROIMAN_PIN_2, HIGH);
+		}
 	}
 	if (strcmp(topic, ELECTROIMAN_3_TOPIC) == 0) {
 		bool status = doc["status"];
-		digitalWrite(ELECTROIMAN_PIN_3, status);
+		if (status) {
+			debugger.message("Desactivando electroiman 3");
+			digitalWrite(ELECTROIMAN_PIN_3, LOW);
+		} else {
+			debugger.message("Activando electroiman 3");
+			digitalWrite(ELECTROIMAN_PIN_3, HIGH);
+		}
 	}
 	if (strcmp(topic, ELECTROIMAN_4_TOPIC) == 0) {
 		bool status = doc["status"];
-		digitalWrite(ELECTROIMAN_PIN_4, status);
+		if (status) {
+			debugger.message("Desactivando electroiman 4");
+			digitalWrite(ELECTROIMAN_PIN_4, LOW);
+		} else {
+			debugger.message("Activando electroiman 4");
+			digitalWrite(ELECTROIMAN_PIN_4, HIGH);
+		}
 	}
 }
 void setup()

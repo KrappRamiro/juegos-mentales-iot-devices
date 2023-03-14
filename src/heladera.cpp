@@ -25,7 +25,13 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	if (strcmp(topic, ELECTROIMAN_TOPIC) == 0) {
 		deserializeJson(doc, payload); // Put the info from the payload into the JSON document
 		bool status = doc["status"];
-		digitalWrite(PIN_ELECTROIMAN, status);
+		if (status) {
+			debugger.message("Desactivando electroiman");
+			digitalWrite(PIN_ELECTROIMAN, LOW);
+		} else {
+			debugger.message("Activando electroiman");
+			digitalWrite(PIN_ELECTROIMAN, HIGH);
+		}
 	}
 }
 
@@ -39,7 +45,7 @@ void setup()
 	mqttc.setCallback(messageHandler);
 	mqttc.subscribe(ELECTROIMAN_TOPIC, 1); // Subscribe to the topic that updates the state every time it changes
 	debugger.message("Finished configuration");
-	debugger.requiered_loops = 20
+	debugger.requiered_loops = 20;
 }
 
 void loop()
@@ -52,9 +58,10 @@ void loop()
 		Serial.printf("Key pressed: %c", myKey);
 		StaticJsonDocument<32> doc;
 		char jsonBuffer[32];
-		doc["key"] = myKey;
+		String key_str = String(myKey);
+		doc["key"] = key_str;
 		serializeJson(doc, jsonBuffer);
-		report_reading_to_broker("keypad", jsonBuffer); // Publish the pressed key to AWS
+		report_reading_to_broker("keypad", jsonBuffer); // Publish the pressed key to broker
 	}
 	local_delay(50);
 	debugger.loop();
