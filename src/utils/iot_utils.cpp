@@ -12,8 +12,8 @@
 #include "utils/iot_utils.hpp"
 #include "secrets/shared_secrets.h"
 #ifdef ESP32
-#include "iot_utils.hpp"
 #include "soc/rtc_wdt.h"
+#include "utils/iot_utils.hpp"
 #endif
 time_t now;
 time_t nowish = 1510592825;

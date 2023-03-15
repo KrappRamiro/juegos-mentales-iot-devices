@@ -7,3 +7,7 @@ Este repositorio contiene todos los archivos usados para la programacion de los 
 ## Prerequisitos
 
 El proyecto usa [PlatformIO](https://platformio.org/) para su funcionamiento
+
+## Comentarios
+
+Los comentarios usan Doxygen, https://devblogs.microsoft.com/cppblog/intellisense-improvements-in-visual-studio-2019/

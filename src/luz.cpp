@@ -1,113 +1,21 @@
-#include "modules/utils/iot/iot_utils.hpp"
+#include "classes/light_config.hpp"
+#include "utils/iot_utils.hpp"
 // ------------------ Constants --------------------- //
 #define SWITCH_PIN A0
 #define N_RGB_LIGHTS 4
 //  -------------- Defaults values used for fallback ------------------ //
-#define DEFAULT_BRIGHTNESS_LEVEL 150
-#define DEFAULT_FLICKER_MIN_TIME 30000
-#define DEFAULT_FLICKER_MAX_TIME 50000
-#define DEFAULT_BLACKOUT_MIN_TIME 600000
-#define DEFAULT_BLACKOUT_MAX_TIME 800000
 int rn;
 unsigned long flicker_start_millis = 0; // will store last time LED was updated
 unsigned long blackout_start_millis = 0; // will store last time LED was updated
 unsigned long flicker_interval;
 unsigned long blackout_interval;
 
-#pragma region ClassDefinition
+// LightConfig light_config = LightConfig();
+MQTTDebug deb = MQTTDebug();
 
-class LightConfig {
-	String mode;
-	byte fixed_brightness;
-	unsigned int flicker_min_time;
-	unsigned int flicker_max_time;
-	unsigned int blackout_min_time;
-	unsigned int blackout_max_time;
-
-public:
-	Config()
-	{
-		this->fixed_brightness = DEFAULT_BRIGHTNESS_LEVEL;
-		this->flicker_min_time = DEFAULT_FLICKER_MIN_TIME;
-		this->flicker_max_time = DEFAULT_FLICKER_MAX_TIME;
-		this->blackout_min_time = DEFAULT_BLACKOUT_MIN_TIME;
-		this->blackout_max_time = DEFAULT_BLACKOUT_MAX_TIME;
-	}
-	// ----------- Setters ----------- //
-	void set_mode(const char* mode)
-	{
-		if (mode != "fixed" || mode != "scary" || mode != "panic" || mode != "off") {
-			debugger.message_string("ERROR setting mode: the following mode is not supported: ", mode, "error");
-			return;
-		}
-		debugger.message_string("Setting the mode to", mode);
-		this->mode = mode;
-	}
-	void set_fixed_brightness(byte brightness)
-	{
-		if (0 > brightness && brightness < 256) {
-			debugger.message_number("ERROR setting fixed brightness: Brightness should be between 0 and 255, but recieved: ", brightness, "error");
-			return;
-		}
-		debugger.message_number("Setting the fixed brightness to ", brightness);
-		fixed_brightness = brightness;
-	}
-	void set_flicker_min_time(unsigned int time)
-	{
-		debugger.message_number("Setting the flickering min time to ", time);
-		flicker_min_time = time;
-	}
-	void set_flicker_max_time(unsigned int time)
-	{
-		debugger.message_number("Setting the flickering min time to ", time);
-		flicker_min_time = time;
-	}
-	void set_blackout_min_time(unsigned int time)
-	{
-		debugger.message_number("Setting the blackout min time to ", time);
-		blackout_min_time = time;
-	}
-	void set_blackout_max_time(unsigned int time)
-	{
-		debugger.message_number("Setting the blackout max time to ", time);
-		blackout_max_time = time;
-	}
-#pragma region getters
-	// ----------- Getters ----------- //
-
-	String get_mode()
-	{
-		return mode;
-	}
-
-	byte get_fixed_brightness()
-	{
-		return fixed_brightness;
-	}
-
-	int get_flicker_min_time()
-	{
-		return flicker_min_time;
-	}
-
-	int get_flicker_max_time()
-	{
-		return flicker_max_time;
-	}
-
-	int get_blackout_max_time()
-	{
-		return blackout_max_time;
-	}
-
-	int get_blackout_min_time()
-	{
-		return blackout_min_time;
-	}
-#pragma endregion getters
-
-} config;
-
+void setup() { }
+void loop() { }
+/*
 class BaseLight {
 protected: // This variables needs to be protected so they can be accessed in the derived classes
 	byte brightness;
@@ -482,3 +390,5 @@ void loop()
 	local_delay(100);
 	debugger.loop();
 }
+
+*/
