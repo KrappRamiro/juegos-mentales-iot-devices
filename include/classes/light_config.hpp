@@ -10,6 +10,11 @@
  */
 #pragma once
 #include "utils/iot_utils.hpp"
+#define DEFAULT_BRIGHTNESS_LEVEL 150
+#define DEFAULT_FLICKER_MIN_TIME 30000
+#define DEFAULT_FLICKER_MAX_TIME 50000
+#define DEFAULT_BLACKOUT_MIN_TIME 600000
+#define DEFAULT_BLACKOUT_MAX_TIME 800000
 /**
  LightConfig class stores the configuration to be used in the lights, such as:
  - The light mode
@@ -20,9 +25,6 @@
 */
 class LightConfig {
 	char mode[20]; ///< The mode for the light, can be "off", "fixed", "scary", or "panic"
-	byte fixed_brightness; ///< The fixed brightness level to use
-	byte scary_brightness; ///< The scary brightness level to use
-	byte uv_brightness; ///< The brightness to be used in the UV Light
 	unsigned int flicker_min_time; ///< The minimum time for the flickering period
 	unsigned int flicker_max_time; ///< The maximum time for the flickering period
 	unsigned int blackout_min_time; ///< The minimum time for the blackout period
@@ -43,18 +45,6 @@ public:
 	 * - "panic" (red lights)
 	 */
 	void set_mode(const char* mode);
-	/**
-	 * @brief Set the fixed brightness
-	 *
-	 * @param brightness Value between 0 and 255
-	 */
-	void set_fixed_brightness(byte brightness);
-	/**
-	 * @brief Set the scary brightness
-	 *
-	 * @param brightness Value between 0 and 255
-	 */
-	void set_scary_brightness(byte brightness);
 	/**
 	 * @brief Set the flicker min time
 	 *
@@ -85,18 +75,6 @@ public:
 	 * @returns String with the mode
 	 */
 	String get_mode();
-	/**
-	 * @brief Get the fixed brightness
-	 *
-	 * @return byte with the fixed_brightness, value between 0 and 255
-	 */
-	byte get_fixed_brightness();
-	/**
-	 * @brief Get the scary brightness
-	 *
-	 * @return byte with the scary_brightness, value between 0 and 255
-	 */
-	byte get_scary_brightness();
 	/**
 	 * @brief Get the flicker min time
 	 *

@@ -10,14 +10,8 @@
  */
 #include "classes/light_config.hpp"
 #include "utils/iot_utils.hpp"
-#define DEFAULT_BRIGHTNESS_LEVEL 150
-#define DEFAULT_FLICKER_MIN_TIME 30000
-#define DEFAULT_FLICKER_MAX_TIME 50000
-#define DEFAULT_BLACKOUT_MIN_TIME 600000
-#define DEFAULT_BLACKOUT_MAX_TIME 800000
 LightConfig::LightConfig()
 {
-	fixed_brightness = DEFAULT_BRIGHTNESS_LEVEL;
 	flicker_min_time = DEFAULT_FLICKER_MIN_TIME;
 	flicker_max_time = DEFAULT_FLICKER_MAX_TIME;
 	blackout_min_time = DEFAULT_BLACKOUT_MIN_TIME;
@@ -25,21 +19,12 @@ LightConfig::LightConfig()
 }
 void LightConfig::set_mode(const char* desired_mode)
 {
-	if (desired_mode != "fixed" || desired_mode != "scary" || desired_mode != "panic" || desired_mode != "off") {
+	if (strcmp(desired_mode, "fixed") != 0 || strcmp(desired_mode, "scary") != 0 || strcmp(desired_mode, "panic") != 0 || strcmp(desired_mode, "off") != 0) {
 		debugger.message_string("ERROR setting mode: the following mode is not supported: ", desired_mode, "error");
 		return;
 	}
 	debugger.message_string("Setting the mode to", desired_mode);
 	strcpy(mode, desired_mode);
-}
-void LightConfig::set_fixed_brightness(byte brightness)
-{
-	if (0 > brightness && brightness < 256) {
-		debugger.message_number("ERROR setting fixed brightness: Brightness should be between 0 and 255, but recieved: ", brightness, "error");
-		return;
-	}
-	debugger.message_number("Setting the fixed brightness to ", brightness);
-	fixed_brightness = brightness;
 }
 void LightConfig::set_flicker_min_time(unsigned int time)
 {
@@ -64,11 +49,6 @@ void LightConfig::set_blackout_max_time(unsigned int time)
 String LightConfig::get_mode()
 {
 	return mode;
-}
-
-byte LightConfig::get_fixed_brightness()
-{
-	return fixed_brightness;
 }
 
 int LightConfig::get_flicker_min_time()

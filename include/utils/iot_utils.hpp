@@ -25,7 +25,7 @@ public:
 	MQTTDebug(); // The constructor here
 	// function declarations here
 	void message(const char* message, const char* subtopic = "info", bool polling = false);
-	void message_number(const char* message, int number, const char* subtopic = "info", bool polling = false);
+	void message_number(const char* message, unsigned long number, const char* subtopic = "info", bool polling = false);
 	void message_string(const char* message, const char* string, const char* subtopic = "info", bool polling = false);
 };
 extern MQTTDebug debugger;
