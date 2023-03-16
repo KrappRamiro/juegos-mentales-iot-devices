@@ -11,10 +11,10 @@
 #pragma once
 #include "utils/iot_utils.hpp"
 #define DEFAULT_BRIGHTNESS_LEVEL 150
-#define DEFAULT_FLICKER_MIN_TIME 30000
-#define DEFAULT_FLICKER_MAX_TIME 50000
-#define DEFAULT_BLACKOUT_MIN_TIME 600000
-#define DEFAULT_BLACKOUT_MAX_TIME 800000
+#define DEFAULT_FLICKER_MIN_TIME 3000000
+#define DEFAULT_FLICKER_MAX_TIME 5000000
+#define DEFAULT_BLACKOUT_MIN_TIME 10000
+#define DEFAULT_BLACKOUT_MAX_TIME 11000
 #define DEFAULT_MODE "off"
 /**
  LightConfig class stores the configuration to be used in the lights, such as:

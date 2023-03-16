@@ -96,7 +96,7 @@ void setup()
 void loop()
 {
 	int switch_reading = analogRead(SWITCH_PIN);
-	debugger.message_number("A0 (switch) reading: ", switch_reading, "debug", true);
+	// debugger.message_number("A0 (switch) reading: ", switch_reading, "debug", true);
 	if (switch_reading > 500) {
 		debugger.message("Detected the switch");
 		// --------------- Report switch status ------------------ //
@@ -181,10 +181,10 @@ void blackout()
 {
 	// REMEMBER: For this functions, we dont modify the .brightness class member, we just use analogWrite with the PIN_N
 	debugger.message("START blackout");
-	const unsigned long interval = random(2500, 4000); // duration of the blackout
+	const unsigned long interval = random(3000, 4000); // duration of the blackout
 
 	// ------------ START OF bajada de tension ------------------
-	for (int i = 0; i < 40; i++) {
+	for (int i = 0; i < 20; i++) {
 		rn = random(10, DEFAULT_BRIGHTNESS_LEVEL - i / 2);
 		for (int j = 0; j < N_RGB_LIGHTS; j++) {
 			analogWrite(rgb_lights[j].get_blue_pin(), rn);
@@ -196,6 +196,7 @@ void blackout()
 		}
 		delay(50);
 		ESP.wdtFeed();
+		yield();
 	}
 	// ------------- END OF bajada de tension ---------------------------
 
@@ -206,9 +207,6 @@ void blackout()
 		analogWrite(rgb_lights[i].get_red_pin(), 0);
 		analogWrite(rgb_lights[i].get_green_pin(), 0);
 	}
-	if (uv_light.get_brightness() > 0) {
-		analogWrite(uv_light.get_pin(), 0);
-	}
 	debugger.message("START millis phase", "debug");
 	// wait for some time (interval) to turn off the lights
 	unsigned long currentMillis = millis();
@@ -218,7 +216,10 @@ void blackout()
 		}
 		delay(50);
 		ESP.wdtFeed();
+		yield();
+		Serial.print("~");
 	}
+	Serial.print("\n");
 	debugger.message("END millis phase", "debug");
 	// ------------ END OF luces apagadas ------------------
 
@@ -227,17 +228,16 @@ void blackout()
 	for (int i = 0; i < 40; i++) {
 		rn = random(20, DEFAULT_BRIGHTNESS_LEVEL);
 		for (int j = 0; j < N_RGB_LIGHTS; j++) {
-			analogWrite(rgb_lights[i].get_blue_pin(), rn);
-			analogWrite(rgb_lights[i].get_red_pin(), rn);
-			analogWrite(rgb_lights[i].get_green_pin(), rn);
-		}
-		if (uv_light.get_brightness() > 0) {
-			analogWrite(uv_light.get_pin(), rn);
+			analogWrite(rgb_lights[j].get_blue_pin(), rn);
+			analogWrite(rgb_lights[j].get_red_pin(), rn);
+			analogWrite(rgb_lights[j].get_green_pin(), rn);
 		}
 		delay(50);
 		ESP.wdtFeed();
+		yield();
 		Serial.print("~");
 	}
+	Serial.print("\n");
 	debugger.message("END reestablecer de a poco", "debug");
 	// ------------ END OF reestablecer la luz de a poco---------
 
@@ -247,7 +247,6 @@ void blackout()
 		analogWrite(rgb_lights[i].get_red_pin(), rgb_lights[i].get_brightness());
 		analogWrite(rgb_lights[i].get_green_pin(), rgb_lights[i].get_brightness());
 	}
-	analogWrite(uv_light.get_pin(), uv_light.get_brightness());
 
 	// ------------ END OF reestablecer la luz totalmente ---------
 
