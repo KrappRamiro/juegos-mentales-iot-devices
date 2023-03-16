@@ -15,7 +15,7 @@ class RGBLight {
 	byte red_pin;
 	byte blue_pin;
 	byte green_pin;
-	byte brightness;
+	int brightness;
 	char color[20];
 
 	void update_analog_pins(); ///< This function updates the analog pins, and is called every time the color or the brightness are changed
@@ -29,13 +29,14 @@ public:
 	 * @param color
 	 * @param brightness Value between 0 and 255
 	 */
-	RGBLight(byte red_pin, byte blue_pin, byte green_pin, const char* color = "white", byte brightness = 150);
+	RGBLight(byte red_pin, byte blue_pin, byte green_pin, const char* color = "white", int brightness = 150);
 	/**
 	 * @brief Sets the brightness, value between 0 and 255
 	 *
 	 * @param brightness value between 0 and 255
+	 * @param dont_update_analog controls if the analog pins are being updated
 	 */
-	void set_brightness(byte brightness);
+	void set_brightness(int brightness, bool dont_update_analog = false);
 	/**
 	 * @brief Sets the color
 	 *
@@ -47,8 +48,8 @@ public:
 	 *
 	 * @return byte with a value between 0 and 255
 	 */
-	byte get_brightness();
-	int get_red_pin();
-	int get_green_pin();
-	int get_blue_pin();
+	int get_brightness();
+	byte get_red_pin();
+	byte get_green_pin();
+	byte get_blue_pin();
 };

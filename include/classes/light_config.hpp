@@ -15,6 +15,7 @@
 #define DEFAULT_FLICKER_MAX_TIME 50000
 #define DEFAULT_BLACKOUT_MIN_TIME 600000
 #define DEFAULT_BLACKOUT_MAX_TIME 800000
+#define DEFAULT_MODE "off"
 /**
  LightConfig class stores the configuration to be used in the lights, such as:
  - The light mode

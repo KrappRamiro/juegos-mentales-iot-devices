@@ -14,18 +14,22 @@ GenericLight::GenericLight(byte pin_n)
 	pin = pin_n;
 }
 // ----------- Setters ----------- //
-void GenericLight::set_brightness(byte brightness)
+void GenericLight::set_brightness(int brightness, bool dont_update_analog)
 {
-	if (0 > brightness && brightness < 256) {
+	if (brightness < 0 || brightness > 255) {
 		debugger.message_number("ERROR setting generic light brightness: Brightness should be between 0 and 255, but recieved: ", brightness, "error");
 		return;
 	}
-	debugger.message_number("Setting the generic light brightness to ", brightness);
 	this->brightness = brightness;
-	analogWrite(pin, brightness);
+	if (dont_update_analog) {
+		debugger.message_number("Setting the RGB light brightness WITHOUT UPDATING ANALOG to ", brightness);
+	} else {
+		debugger.message_number("Setting the RGB light brightness to ", brightness);
+		analogWrite(pin, brightness);
+	}
 }
 // ----------- Getters ----------- //
-byte GenericLight::get_brightness()
+int GenericLight::get_brightness()
 {
 	return brightness;
 }

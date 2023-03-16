@@ -10,9 +10,9 @@
  */
 #include "classes/rgb_light.hpp"
 
-RGBLight::RGBLight(byte red_pin, byte blue_pin, byte green_pin, const char* color, byte brightness)
+RGBLight::RGBLight(byte red_pin, byte blue_pin, byte green_pin, const char* color, int brightness)
 {
-	if (0 > brightness && brightness < 256) {
+	if (brightness < 0 || brightness > 255) {
 		Serial.println("ERROR in rgb light constructor: Brightness should be between 0 and 255");
 		return;
 	}
@@ -24,15 +24,19 @@ RGBLight::RGBLight(byte red_pin, byte blue_pin, byte green_pin, const char* colo
 	update_analog_pins();
 }
 
-void RGBLight::set_brightness(byte brightness) // Sets the brightness
+void RGBLight::set_brightness(int brightness, bool dont_update_analog) // Sets the brightness
 {
-	if (0 > brightness && brightness < 256) {
+	if (brightness < 0 || brightness > 255) {
 		debugger.message_number("ERROR setting RGB light brightness: Brightness should be between 0 and 255, but recieved: ", brightness, "error");
 		return;
 	}
-	debugger.message_number("Setting the generic light brightness to ", brightness);
 	this->brightness = brightness;
-	update_analog_pins();
+	if (dont_update_analog) {
+		debugger.message_number("Setting the RGB light brightness WITHOUT UPDATING ANALOG to ", brightness);
+	} else {
+		debugger.message_number("Setting the RGB light brightness to ", brightness);
+		update_analog_pins();
+	}
 }
 void RGBLight::set_color(const char* color) // Sets the color and updates the analog pins
 {
@@ -64,19 +68,19 @@ void RGBLight::update_analog_pins()
 	}
 }
 
-byte RGBLight::get_brightness()
+int RGBLight::get_brightness()
 {
 	return brightness;
 }
-int RGBLight::get_red_pin()
+byte RGBLight::get_red_pin()
 {
 	return this->red_pin;
 }
-int RGBLight::get_green_pin()
+byte RGBLight::get_green_pin()
 {
 	return this->green_pin;
 }
-int RGBLight::get_blue_pin()
+byte RGBLight::get_blue_pin()
 {
 	return this->blue_pin;
 }

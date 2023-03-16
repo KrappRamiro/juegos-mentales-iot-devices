@@ -15,7 +15,7 @@
  *
  */
 class GenericLight {
-	byte brightness;
+	int brightness;
 	byte pin;
 
 public:
@@ -30,14 +30,15 @@ public:
 	 * @brief Set the brightness of the light
 	 *
 	 * @param brightness value between 0 and 255
+	 * @param dont_update_analog controls if the analog pins are being updated
 	 */
-	void set_brightness(byte brightness);
+	void set_brightness(int brightness, bool dont_update_analog = false);
 	// ----------- Getters ----------- //
 	/**
 	 * @brief Get the brightness
 	 *
-	 * @return byte with value between 0 and 255
+	 * @return int with value between 0 and 255
 	 */
-	byte get_brightness();
+	int get_brightness();
 	byte get_pin();
 };

@@ -12,6 +12,7 @@
 #include "utils/iot_utils.hpp"
 LightConfig::LightConfig()
 {
+	strcpy(mode, DEFAULT_MODE);
 	flicker_min_time = DEFAULT_FLICKER_MIN_TIME;
 	flicker_max_time = DEFAULT_FLICKER_MAX_TIME;
 	blackout_min_time = DEFAULT_BLACKOUT_MIN_TIME;
@@ -19,12 +20,13 @@ LightConfig::LightConfig()
 }
 void LightConfig::set_mode(const char* desired_mode)
 {
-	if (strcmp(desired_mode, "fixed") != 0 || strcmp(desired_mode, "scary") != 0 || strcmp(desired_mode, "panic") != 0 || strcmp(desired_mode, "off") != 0) {
+	if (strcmp(desired_mode, "fixed") == 0 || strcmp(desired_mode, "scary") == 0 || strcmp(desired_mode, "panic") == 0 || strcmp(desired_mode, "off") == 0) {
+		debugger.message_string("Setting the mode to ", desired_mode);
+		strcpy(mode, desired_mode);
+	} else {
 		debugger.message_string("ERROR setting mode: the following mode is not supported: ", desired_mode, "error");
 		return;
 	}
-	debugger.message_string("Setting the mode to", desired_mode);
-	strcpy(mode, desired_mode);
 }
 void LightConfig::set_flicker_min_time(unsigned int time)
 {
