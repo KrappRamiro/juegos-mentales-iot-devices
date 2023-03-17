@@ -22,9 +22,9 @@ void GenericLight::set_brightness(int brightness, bool dont_update_analog)
 	}
 	this->brightness = brightness;
 	if (dont_update_analog) {
-		debugger.message_number("Setting the RGB light brightness WITHOUT UPDATING ANALOG to ", brightness);
+		debugger.message_number("Setting the generic light brightness WITHOUT UPDATING ANALOG to ", brightness);
 	} else {
-		debugger.message_number("Setting the RGB light brightness to ", brightness);
+		debugger.message_number("Setting the generic light brightness to ", brightness);
 		analogWrite(pin, brightness);
 	}
 }

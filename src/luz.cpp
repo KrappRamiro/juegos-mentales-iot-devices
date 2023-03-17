@@ -56,9 +56,7 @@ void messageHandler(const char* topic, byte* payload, unsigned int length)
 		}
 	} else if (strcmp(topic, UV_BRIGHTNESS_TOPIC) == 0) {
 		int brightness = doc["uv_brightness"];
-		// If the mode is off, dont update the analog pins
-		bool update_analog = (light_config.get_mode().equals("off"));
-		uv_light.set_brightness(brightness, update_analog);
+		uv_light.set_brightness(brightness);
 	} else if (strcmp(topic, FLICKER_MIN_TIME_TOPIC) == 0) {
 		light_config.set_flicker_min_time(doc["flicker_min_time"]);
 	} else if (strcmp(topic, FLICKER_MAX_TIME_TOPIC) == 0) {
