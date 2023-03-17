@@ -121,12 +121,18 @@ void loop()
 			debugger.message("Putting the lights in fixed");
 			for (int i = 0; i < N_RGB_LIGHTS; i++) {
 				rgb_lights[i].set_brightness(rgb_lights[i].get_brightness());
+				rgb_lights[i].set_color("white");
 			}
 		}
 		if (light_config.get_mode() == "panic") {
 			debugger.message("Putting the lights in panic");
 			for (int i = 0; i < N_RGB_LIGHTS; i++) {
 				rgb_lights[i].set_color("red");
+			}
+		}
+		if (light_config.get_mode() == "scary") {
+			for (int i = 0; i < N_RGB_LIGHTS; i++) {
+				rgb_lights[i].set_color("white");
 			}
 		}
 	}
