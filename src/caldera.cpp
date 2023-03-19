@@ -1,7 +1,8 @@
-#include"modules/utils/iot/iot_utils.hpp"
+#include "utils/iot_utils.hpp"
+
 #include <Servo.h>
 
-#define THRESHOLD 1500
+#define THRESHOLD 3000
 #define N_SENSORES_PROXIMIDAD 4
 #define N_ATENUADORES 2
 
@@ -94,7 +95,7 @@ void setup()
 	mqttc.subscribe(ELECTROIMAN_TABLERO_ELECTRICO_TOPIC, 1);
 	servo.attach(PIN_SERVO);
 	debugger.message("Finished configuration");
-	debugger.requiered_loops = 10;
+	debugger.requiered_loops = 20;
 }
 void loop()
 {
@@ -103,7 +104,7 @@ void loop()
 	// -------------------- START OF READING SECTION --------------------
 	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
 		sensores_proximidad[i].lectura = analogRead(pines_proximidad[i]);
-		Serial.printf("Analog read del sensor %i: %i\n", i, sensores_proximidad[i].lectura);
+		// Serial.printf("Analog read del sensor %i: %i\n", i, sensores_proximidad[i].lectura);
 	}
 	for (int i = 0; i < N_ATENUADORES; i++) {
 		atenuadores[i].lectura = analogRead(pines_atenuadores[i]);
@@ -112,10 +113,10 @@ void loop()
 	interruptores.actual = (digitalRead(PIN_INTERRUPTORES_CORRECTO) == true && digitalRead(PIN_INTERRUPTORES_INCORRECTO) == false) ? true : false;
 
 	// ----------- Debug of the analog readings ------------ //
-	debugger.message_number("La lectura del sensor 0 es", sensores_proximidad[0].lectura, "debug");
-	debugger.message_number("La lectura del sensor 1 es", sensores_proximidad[1].lectura, "debug");
-	debugger.message_number("La lectura del sensor 2 es", sensores_proximidad[2].lectura, "debug");
-	debugger.message_number("La lectura del sensor 3 es", sensores_proximidad[3].lectura, "debug");
+	debugger.message_number("La lectura del sensor de movimiento 0 es", sensores_proximidad[0].lectura, "debug", true);
+	debugger.message_number("La lectura del sensor de movimiento 1 es", sensores_proximidad[1].lectura, "debug", true);
+	debugger.message_number("La lectura del sensor de movimiento 2 es", sensores_proximidad[2].lectura, "debug", true);
+	debugger.message_number("La lectura del sensor de movimiento 3 es", sensores_proximidad[3].lectura, "debug", true);
 	// -------------------- END OF READING SECTION --------------------
 #pragma endregion reading
 
@@ -123,7 +124,7 @@ void loop()
 	// -------------------- START OF THRESHOLD SECTION --------------------
 	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
 		sensores_proximidad[i].actual = (sensores_proximidad[i].lectura > THRESHOLD) ? true : false; // Si supera el threshold de cercania
-		Serial.printf("ON/OFF Sensor-%i:  %s\n", i, (sensores_proximidad[i].actual ? "ON" : "OFF"));
+		// Serial.printf("ON/OFF Sensor-%i:  %s\n", i, (sensores_proximidad[i].actual ? "ON" : "OFF"));
 	}
 	for (int i = 0; i < N_ATENUADORES; i++) {
 		// Si el potenciometro esta entre los valores establecidos
@@ -162,7 +163,6 @@ void loop()
 	// -------------------- START OF SAVE TO PREVIOUS SECTION AND PUBLISHING --------------------
 	if (should_publish) {
 		should_publish = false;
-		debugger.message("Guardando cambios y publicando");
 		for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
 			sensores_proximidad[i].save_to_previous();
 		}
@@ -224,7 +224,6 @@ void loop()
 	}
 	// -------------------- END OF SERVO CONTROL SECTION --------------------
 #pragma endregion servo_control
-	Serial.println("-------------------------------------------------------------------;");
 	local_delay(100); // retardo de 100ms entre lectura
 	debugger.loop();
 }

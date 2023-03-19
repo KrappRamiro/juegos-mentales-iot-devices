@@ -1,7 +1,7 @@
 // A0 es el sensor CNY70, en la placa original estaba a D1 y hay que cambiarlo
 // D2 es el pin del MOSFET, hay que mandarle PWM al palo cuando tocan el boton
 // DX es el pin del boton, en el codigo pongo D0 pero despues lo cambio a ver bien
-#include "modules/utils/iot/iot_utils.hpp"
+#include "utils/iot_utils.hpp"
 #define BUTTON_PIN D0
 #define CNY70_PIN A0
 #define MOSFET_PIN D2

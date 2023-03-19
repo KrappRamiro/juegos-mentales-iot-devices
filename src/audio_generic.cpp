@@ -1,4 +1,4 @@
-#include "modules/utils/iot/iot_utils.hpp"
+#include "utils/iot_utils.hpp"
 #define TRACK_1_PIN D3
 #define TRACK_2_PIN D4
 #define PAUSE_PIN D5
@@ -37,7 +37,7 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 }
 void high_low(int pin_n)
 {
-	Serial.printf("High-lowing the pin %i\n", pin_n);
+	debugger.message_number("High-lowing the pin ", pin_n, "debug");
 	digitalWrite(pin_n, HIGH);
 	delay(300);
 	digitalWrite(pin_n, LOW);
