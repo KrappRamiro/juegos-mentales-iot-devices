@@ -53,7 +53,10 @@ void MQTTDebug::message(const char* message, const char* subtopic, bool polling)
 	// THINGNAME / debug / subtopic
 	char topic[100] = "";
 	strcat(topic, THINGNAME);
-	strcat(topic, "/debug/");
+	if (polling)
+		strcat(topic, "/debug/polling/");
+	else
+		strcat(topic, "/debug/");
 	strcat(topic, subtopic);
 	mqttc.publish(topic, message);
 }
@@ -75,7 +78,10 @@ void MQTTDebug::message_number(const char* message, unsigned long number, const 
 	// THINGNAME / debug / subtopic
 	char topic[100] = "";
 	strcat(topic, THINGNAME);
-	strcat(topic, "/debug/");
+	if (polling)
+		strcat(topic, "/debug/polling/");
+	else
+		strcat(topic, "/debug/");
 	strcat(topic, subtopic);
 	mqttc.publish(topic, new_msg);
 }
