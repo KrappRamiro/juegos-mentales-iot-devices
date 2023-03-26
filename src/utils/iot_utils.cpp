@@ -92,7 +92,10 @@ void MQTTDebug::message_string(const char* message, const char* string, const ch
 	// THINGNAME / debug / subtopic
 	char topic[100] = "";
 	strcat(topic, THINGNAME);
-	strcat(topic, "/debug/");
+	if (polling)
+		strcat(topic, "/debug/polling/");
+	else
+		strcat(topic, "/debug/");
 	strcat(topic, subtopic);
 	mqttc.publish(topic, new_msg);
 }
@@ -141,7 +144,7 @@ void reconnect()
 {
 	// Loop until we're reconnected
 	while (!mqttc.connected()) {
-		Serial.print("Attempting MQTT connection...");
+		Serial.print("Attempting MQTT REconnection...");
 		// Attempt to connect
 		if (mqttc.connect(THINGNAME)) {
 			Serial.println("connected");
@@ -153,6 +156,19 @@ void reconnect()
 			delay(3000);
 		}
 	}
+}
+
+bool nonblocking_reconnect()
+{
+	if (mqttc.connect(THINGNAME)) {
+		// Once connected, publish an announcement...
+		char topic[100] = "";
+		strcat(topic, THINGNAME);
+		strcat(topic, "/status");
+		const char* result = (mqttc.publish(topic, "ONLINE", true)) ? "success publishing reconnection message" : "failed publishing reconnection message";
+		Serial.println(result);
+	}
+	return mqttc.connected();
 }
 
 void NTPConnect(void)

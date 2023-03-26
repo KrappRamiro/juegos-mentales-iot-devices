@@ -36,4 +36,5 @@ void NTPConnect();
 void local_yield();
 void local_delay(unsigned long millisecs);
 void report_reading_to_broker(const char* subtopic, char* jsonBuffer);
+bool nonblocking_reconnect();
 #endif

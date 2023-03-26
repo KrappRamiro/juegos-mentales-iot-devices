@@ -18,6 +18,7 @@ unsigned long flicker_start_millis = 0; // will store last time LED was updated
 unsigned long blackout_start_millis = 0; // will store last time LED was updated
 unsigned long flicker_interval;
 unsigned long blackout_interval;
+long lastReconnectAttempt = 0;
 struct Flags {
 	bool mode_changed = true;
 } flags;
@@ -93,69 +94,91 @@ void setup()
 }
 void loop()
 {
-	int switch_reading = analogRead(SWITCH_PIN);
-	// debugger.message_number("A0 (switch) reading: ", switch_reading, "debug", true);
-	if (switch_reading > 500) {
-		debugger.message("Detected the switch");
-		// --------------- Report switch status ------------------ //
-		StaticJsonDocument<32> switchDoc;
-		char jsonBuffer[32];
-		switchDoc["switch"] = true;
-		serializeJson(switchDoc, jsonBuffer);
-		report_reading_to_broker("switch", jsonBuffer);
-		// ---------------------------------------------------------------------------- //
-		local_delay(200); // I delay it a little bit so the player cant turn it on-off by holding the switch
-	}
-	if (flags.mode_changed) {
-		flags.mode_changed = false;
-		if (light_config.get_mode() == "off") {
-			debugger.message("Turning off the lights");
-			for (int i = 0; i < N_RGB_LIGHTS; i++) {
-				analogWrite(rgb_lights[i].get_blue_pin(), 0);
-				analogWrite(rgb_lights[i].get_red_pin(), 0);
-				analogWrite(rgb_lights[i].get_green_pin(), 0);
-			}
-			analogWrite(uv_light.get_pin(), 0);
-		}
-		if (light_config.get_mode() == "fixed") {
-			debugger.message("Putting the lights in fixed");
-			for (int i = 0; i < N_RGB_LIGHTS; i++) {
-				rgb_lights[i].set_brightness(rgb_lights[i].get_brightness());
-				rgb_lights[i].set_color("white");
+	if (!mqttc.connected()) {
+		long now = millis();
+		if (now - lastReconnectAttempt > 5000) {
+			lastReconnectAttempt = now;
+			// Attempt to reconnect
+			if (nonblocking_reconnect()) {
+				lastReconnectAttempt = 0;
+				Serial.println("Reconnected, YEAH!!!");
+				mqttc.subscribe(MODE_TOPIC, 1);
+				mqttc.subscribe(RGB_BRIGHTNESS_TOPIC, 1);
+				mqttc.subscribe(UV_BRIGHTNESS_TOPIC, 1);
+				mqttc.subscribe(FLICKER_MIN_TIME_TOPIC, 1);
+				mqttc.subscribe(FLICKER_MAX_TIME_TOPIC, 1);
+				mqttc.subscribe(BLACKOUT_MIN_TIME_TOPIC, 1);
+				mqttc.subscribe(BLACKOUT_MAX_TIME_TOPIC, 1);
+			} else {
+				Serial.println("Disconnected from MQTT broker, now attempting a reconnection");
 			}
 		}
-		if (light_config.get_mode() == "panic") {
-			debugger.message("Putting the lights in panic");
-			for (int i = 0; i < N_RGB_LIGHTS; i++) {
-				rgb_lights[i].set_color("red");
+	} else {
+
+		int switch_reading = analogRead(SWITCH_PIN);
+		// debugger.message_number("A0 (switch) reading: ", switch_reading, "debug", true);
+		if (switch_reading > 500) {
+			debugger.message("Detected the switch");
+			// --------------- Report switch status ------------------ //
+			StaticJsonDocument<32> switchDoc;
+			char jsonBuffer[32];
+			switchDoc["switch"] = true;
+			serializeJson(switchDoc, jsonBuffer);
+			report_reading_to_broker("switch", jsonBuffer);
+			// ---------------------------------------------------------------------------- //
+			local_delay(200); // I delay it a little bit so the player cant turn it on-off by holding the switch
+		}
+		if (flags.mode_changed) {
+			flags.mode_changed = false;
+			if (light_config.get_mode() == "off") {
+				debugger.message("Turning off the lights");
+				for (int i = 0; i < N_RGB_LIGHTS; i++) {
+					analogWrite(rgb_lights[i].get_blue_pin(), 0);
+					analogWrite(rgb_lights[i].get_red_pin(), 0);
+					analogWrite(rgb_lights[i].get_green_pin(), 0);
+				}
+				analogWrite(uv_light.get_pin(), 0);
+			}
+			if (light_config.get_mode() == "fixed") {
+				debugger.message("Putting the lights in fixed");
+				for (int i = 0; i < N_RGB_LIGHTS; i++) {
+					rgb_lights[i].set_brightness(rgb_lights[i].get_brightness());
+					rgb_lights[i].set_color("white");
+				}
+			}
+			if (light_config.get_mode() == "panic") {
+				debugger.message("Putting the lights in panic");
+				for (int i = 0; i < N_RGB_LIGHTS; i++) {
+					rgb_lights[i].set_color("red");
+				}
+			}
+			if (light_config.get_mode() == "scary") {
+				for (int i = 0; i < N_RGB_LIGHTS; i++) {
+					rgb_lights[i].set_color("white");
+				}
 			}
 		}
+		// This is not in the flags.mode_changed conditional, because the scary modes needs to be constantly checking if the interval passed
 		if (light_config.get_mode() == "scary") {
-			for (int i = 0; i < N_RGB_LIGHTS; i++) {
-				rgb_lights[i].set_color("white");
+			if (millis() > flicker_start_millis + flicker_interval) {
+				Serial.println(F("The interval for flickering has passed"));
+				flicker();
+				flicker_start_millis = millis();
+				flicker_interval = random(light_config.get_flicker_min_time(), light_config.get_flicker_max_time());
+				debugger.message_number("The flicker interval is: ", flicker_interval, "debug");
+			}
+			delay(50); // por las dudas
+			if (millis() > blackout_start_millis + blackout_interval) {
+				Serial.println("The interval for blackout has passed");
+				blackout();
+				blackout_start_millis = millis();
+				blackout_interval = random(light_config.get_blackout_min_time(), light_config.get_blackout_max_time());
+				debugger.message_number("The blackout interval is: ", blackout_interval, "debug");
 			}
 		}
+		local_delay(100);
+		debugger.loop();
 	}
-	// This is not in the flags.mode_changed conditional, because the scary modes needs to be constantly checking if the interval passed
-	if (light_config.get_mode() == "scary") {
-		if (millis() > flicker_start_millis + flicker_interval) {
-			Serial.println(F("The interval for flickering has passed"));
-			flicker();
-			flicker_start_millis = millis();
-			flicker_interval = random(light_config.get_flicker_min_time(), light_config.get_flicker_max_time());
-			debugger.message_number("The flicker interval is: ", flicker_interval, "debug");
-		}
-		delay(50); // por las dudas
-		if (millis() > blackout_start_millis + blackout_interval) {
-			Serial.println("The interval for blackout has passed");
-			blackout();
-			blackout_start_millis = millis();
-			blackout_interval = random(light_config.get_blackout_min_time(), light_config.get_blackout_max_time());
-			debugger.message_number("The blackout interval is: ", blackout_interval, "debug");
-		}
-	}
-	local_delay(100);
-	debugger.loop();
 }
 
 void flicker()

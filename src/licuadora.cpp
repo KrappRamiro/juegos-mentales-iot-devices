@@ -20,7 +20,7 @@ void setup()
 	connect_mqtt_broker();
 	pinMode(BUTTON_PIN, INPUT);
 	debugger.message("Finished configuration");
-	debugger.requiered_loops = 10;
+	debugger.requiered_loops = 30;
 }
 
 void loop()

@@ -1,4 +1,5 @@
 #include "utils/iot_utils.hpp"
+long lastReconnectAttempt = 0;
 
 #include <Keypad.h>
 #define PIN_ELECTROIMAN D8
@@ -27,10 +28,10 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 		deserializeJson(doc, payload); // Put the info from the payload into the JSON document
 		bool status = doc["status"];
 		if (status) {
-			debugger.message("Desactivando electroiman");
+			debugger.message("Activando electroiman heladera");
 			digitalWrite(PIN_ELECTROIMAN, LOW);
 		} else {
-			debugger.message("Activando electroiman");
+			debugger.message("Desactivando electroiman heladera");
 			digitalWrite(PIN_ELECTROIMAN, HIGH);
 		}
 	}
@@ -52,18 +53,30 @@ void setup()
 void loop()
 {
 	if (!mqttc.connected()) {
-		reconnect();
+		long now = millis();
+		if (now - lastReconnectAttempt > 5000) {
+			lastReconnectAttempt = now;
+			// Attempt to reconnect
+			if (nonblocking_reconnect()) {
+				lastReconnectAttempt = 0;
+				Serial.println("Reconnected, YEAH!!!");
+				mqttc.subscribe(ELECTROIMAN_TOPIC, 1);
+			} else {
+				Serial.println("Disconnected from MQTT broker, now attempting a reconnection");
+			}
+		}
+	} else {
+		myKey = myKeypad.getKey();
+		if (myKey != NULL) {
+			Serial.printf("Key pressed: %c", myKey);
+			StaticJsonDocument<32> doc;
+			char jsonBuffer[32];
+			String key_str = String(myKey);
+			doc["key"] = key_str;
+			serializeJson(doc, jsonBuffer);
+			report_reading_to_broker("keypad", jsonBuffer); // Publish the pressed key to broker
+		}
+		local_delay(50);
+		debugger.loop();
 	}
-	myKey = myKeypad.getKey();
-	if (myKey != NULL) {
-		Serial.printf("Key pressed: %c", myKey);
-		StaticJsonDocument<32> doc;
-		char jsonBuffer[32];
-		String key_str = String(myKey);
-		doc["key"] = key_str;
-		serializeJson(doc, jsonBuffer);
-		report_reading_to_broker("keypad", jsonBuffer); // Publish the pressed key to broker
-	}
-	local_delay(50);
-	debugger.loop();
 }

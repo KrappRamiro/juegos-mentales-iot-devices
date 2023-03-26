@@ -1,4 +1,5 @@
 #include "utils/iot_utils.hpp"
+long lastReconnectAttempt = 0;
 
 void messageHandler(char* topic, byte* payload, unsigned int length)
 {
@@ -8,40 +9,40 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	if (strcmp(topic, ELECTROIMAN_1_TOPIC) == 0) {
 		bool status = doc["status"];
 		if (status) {
-			debugger.message("Desactivando electroiman 1");
+			debugger.message("Activando electroiman 1");
 			digitalWrite(ELECTROIMAN_PIN_1, LOW);
 		} else {
-			debugger.message("Activando electroiman 1");
+			debugger.message("Desactivando electroiman 1");
 			digitalWrite(ELECTROIMAN_PIN_1, HIGH);
 		}
 	}
 	if (strcmp(topic, ELECTROIMAN_2_TOPIC) == 0) {
 		bool status = doc["status"];
 		if (status) {
-			debugger.message("Desactivando electroiman 2");
+			debugger.message("Activando electroiman 2");
 			digitalWrite(ELECTROIMAN_PIN_2, LOW);
 		} else {
-			debugger.message("Activando electroiman 2");
+			debugger.message("Desactivando electroiman 2");
 			digitalWrite(ELECTROIMAN_PIN_2, HIGH);
 		}
 	}
 	if (strcmp(topic, ELECTROIMAN_3_TOPIC) == 0) {
 		bool status = doc["status"];
 		if (status) {
-			debugger.message("Desactivando electroiman 3");
+			debugger.message("Activando electroiman 3");
 			digitalWrite(ELECTROIMAN_PIN_3, LOW);
 		} else {
-			debugger.message("Activando electroiman 3");
+			debugger.message("Desactivando electroiman 3");
 			digitalWrite(ELECTROIMAN_PIN_3, HIGH);
 		}
 	}
 	if (strcmp(topic, ELECTROIMAN_4_TOPIC) == 0) {
 		bool status = doc["status"];
 		if (status) {
-			debugger.message("Desactivando electroiman 4");
+			debugger.message("Activando electroiman 4");
 			digitalWrite(ELECTROIMAN_PIN_4, LOW);
 		} else {
-			debugger.message("Activando electroiman 4");
+			debugger.message("Desactivando electroiman 4");
 			digitalWrite(ELECTROIMAN_PIN_4, HIGH);
 		}
 	}
@@ -68,8 +69,24 @@ void setup()
 void loop()
 {
 	if (!mqttc.connected()) {
-		reconnect();
+		long now = millis();
+		if (now - lastReconnectAttempt > 5000) {
+			lastReconnectAttempt = now;
+			// Attempt to reconnect
+			if (nonblocking_reconnect()) {
+				lastReconnectAttempt = 0;
+				Serial.println("Reconnected, YEAH!!!");
+				mqttc.subscribe(ELECTROIMAN_1_TOPIC, 1);
+				mqttc.subscribe(ELECTROIMAN_2_TOPIC, 1);
+				mqttc.subscribe(ELECTROIMAN_3_TOPIC, 1);
+				mqttc.subscribe(ELECTROIMAN_4_TOPIC, 1);
+			} else {
+				Serial.println("Disconnected from MQTT broker, now attempting a reconnection");
+			}
+		}
+	} else {
+		// Client connected
+		local_delay(200);
+		debugger.loop();
 	}
-	local_delay(200);
-	debugger.loop();
 }
