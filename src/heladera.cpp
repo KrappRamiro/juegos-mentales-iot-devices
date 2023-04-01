@@ -1,4 +1,6 @@
 #include "utils/iot_utils.hpp"
+long lastReconnectAttempt = 0;
+
 #include <Keypad.h>
 #define PIN_ELECTROIMAN D8
 #define ELECTROIMAN_TOPIC "heladera/elements/electroiman"
@@ -25,7 +27,13 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	if (strcmp(topic, ELECTROIMAN_TOPIC) == 0) {
 		deserializeJson(doc, payload); // Put the info from the payload into the JSON document
 		bool status = doc["status"];
-		digitalWrite(PIN_ELECTROIMAN, status);
+		if (status) {
+			debugger.message("Activando electroiman heladera");
+			digitalWrite(PIN_ELECTROIMAN, LOW);
+		} else {
+			debugger.message("Desactivando electroiman heladera");
+			digitalWrite(PIN_ELECTROIMAN, HIGH);
+		}
 	}
 }
 
@@ -38,21 +46,37 @@ void setup()
 	connect_mqtt_broker();
 	mqttc.setCallback(messageHandler);
 	mqttc.subscribe(ELECTROIMAN_TOPIC, 1); // Subscribe to the topic that updates the state every time it changes
-	debug("Finished configuration");
+	debugger.message("Finished configuration");
+	debugger.requiered_loops = 20;
 }
 
 void loop()
 {
 	if (!mqttc.connected()) {
-		reconnect();
+		long now = millis();
+		if (now - lastReconnectAttempt > 5000) {
+			lastReconnectAttempt = now;
+			// Attempt to reconnect
+			if (nonblocking_reconnect()) {
+				lastReconnectAttempt = 0;
+				Serial.println("Reconnected, YEAH!!!");
+				mqttc.subscribe(ELECTROIMAN_TOPIC, 1);
+			} else {
+				Serial.println("Disconnected from MQTT broker, now attempting a reconnection");
+			}
+		}
+	} else {
+		myKey = myKeypad.getKey();
+		if (myKey != NULL) {
+			Serial.printf("Key pressed: %c", myKey);
+			StaticJsonDocument<32> doc;
+			char jsonBuffer[32];
+			String key_str = String(myKey);
+			doc["key"] = key_str;
+			serializeJson(doc, jsonBuffer);
+			report_reading_to_broker("keypad", jsonBuffer); // Publish the pressed key to broker
+		}
+		local_delay(50);
+		debugger.loop();
 	}
-	myKey = myKeypad.getKey();
-	if (myKey != NULL) {
-		Serial.printf("Key pressed: %c", myKey);
-		StaticJsonDocument<32> doc;
-		char jsonBuffer[32];
-		doc["key"] = myKey;
-		report_reading_to_broker("keypad", doc, jsonBuffer); // Publish the pressed key to AWS
-	}
-	local_delay(50);
 }

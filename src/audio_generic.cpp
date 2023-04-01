@@ -5,11 +5,12 @@
 #define VOL_DOWN_PIN D6
 #define VOL_UP_PIN D7
 
+long lastReconnectAttempt = 0;
 bool config_finished_flag = false;
 bool vol_up_flag = false;
 bool vol_down_flag = false;
 bool pause_flag = false;
-bool should_reproduce_track = false;
+bool should_reproduce_track = true;
 int track_n = 0;
 void messageHandler(char* topic, byte* payload, unsigned int length)
 {
@@ -37,7 +38,7 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 }
 void high_low(int pin_n)
 {
-	Serial.printf("High-lowing the pin %i\n", pin_n);
+	debugger.message_number("High-lowing the pin ", pin_n, "debug");
 	digitalWrite(pin_n, HIGH);
 	delay(300);
 	digitalWrite(pin_n, LOW);
@@ -62,42 +63,54 @@ void setup()
 	mqttc.subscribe(TRACK_N_TOPIC, 1);
 	mqttc.subscribe(VOL_UP_TOPIC, 1);
 	mqttc.subscribe(VOL_DOWN_TOPIC, 1);
-	while (!config_finished_flag) {
-		local_delay(150);
-		Serial.print("*");
-	}
-	debug("Finished setup");
+	debugger.message("Finished setup");
+	debugger.requiered_loops = 5;
 }
 void loop()
 {
 	if (!mqttc.connected()) {
-		reconnect();
-	}
-	if (should_reproduce_track) {
-		should_reproduce_track = false;
-		Serial.printf("Reproducing track %i\n", track_n);
-		if (track_n == 1)
-			high_low(TRACK_1_PIN);
-		else if (track_n == 2)
-			high_low(TRACK_2_PIN);
-		else if (track_n == 0)
+		long now = millis();
+		if (now - lastReconnectAttempt > 5000) {
+			lastReconnectAttempt = now;
+			// Attempt to reconnect
+			if (nonblocking_reconnect()) {
+				lastReconnectAttempt = 0;
+				Serial.println("Reconnected, YEAH!!!");
+				mqttc.subscribe(TRACK_N_TOPIC, 1);
+				mqttc.subscribe(VOL_UP_TOPIC, 1);
+				mqttc.subscribe(VOL_DOWN_TOPIC, 1);
+			} else {
+				Serial.println("Disconnected from MQTT broker, now attempting a reconnection");
+			}
+		}
+	} else {
+		if (should_reproduce_track) {
+			should_reproduce_track = false;
+			Serial.printf("Reproducing track %i\n", track_n);
+			if (track_n == 1)
+				high_low(TRACK_1_PIN);
+			else if (track_n == 2)
+				high_low(TRACK_2_PIN);
+			else if (track_n == 0)
+				high_low(PAUSE_PIN);
+		}
+		if (vol_up_flag) {
+			debugger.message("Volume UP");
+			high_low(VOL_UP_PIN);
+			vol_up_flag = false;
+		}
+		if (vol_down_flag) {
+			debugger.message("Volume DOWN");
+			high_low(VOL_DOWN_PIN);
+			vol_down_flag = false;
+		}
+		if (pause_flag) {
+			debugger.message("Pausing the music");
 			high_low(PAUSE_PIN);
+			pause_flag = false;
+		}
+		// Delay a little bit
+		local_delay(200);
+		debugger.loop();
 	}
-	if (vol_up_flag) {
-		debug("Volume UP");
-		high_low(VOL_UP_PIN);
-		vol_up_flag = false;
-	}
-	if (vol_down_flag) {
-		debug("Volume DOWN");
-		high_low(VOL_DOWN_PIN);
-		vol_down_flag = false;
-	}
-	if (pause_flag) {
-		debug("Pausing the music");
-		high_low(PAUSE_PIN);
-		pause_flag = false;
-	}
-	// Delay a little bit
-	local_delay(200);
 }

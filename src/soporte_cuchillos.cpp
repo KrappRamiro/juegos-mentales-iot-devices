@@ -1,4 +1,5 @@
 #include "utils/iot_utils.hpp"
+
 #define BUTTON_PIN D0
 bool current_state = false; // current state of the button
 bool previous_state = false;
@@ -10,7 +11,8 @@ void setup()
 		; // Do nothing until serial connection is opened
 	connect_mqtt_broker();
 	pinMode(BUTTON_PIN, INPUT);
-	debug("Finished configuration");
+	debugger.message("Finished configuration");
+	debugger.requiered_loops = 5;
 }
 
 void loop()
@@ -25,10 +27,13 @@ void loop()
 		previous_state = current_state;
 		StaticJsonDocument<32> doc;
 		char jsonBuffer[32];
+		debugger.message_number("Detected switch change with status ", current_state);
 		doc["switch"] = current_state;
-		report_reading_to_broker("switch", doc, jsonBuffer);
+		serializeJson(doc, jsonBuffer);
+		report_reading_to_broker("switch", jsonBuffer);
 	}
 
 	// Delay a little bit
 	local_delay(200);
+	debugger.loop();
 }

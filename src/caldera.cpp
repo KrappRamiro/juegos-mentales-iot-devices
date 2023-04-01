@@ -1,7 +1,9 @@
 #include "utils/iot_utils.hpp"
+long lastReconnectAttempt = 0;
+
 #include <Servo.h>
 
-#define THRESHOLD 1500
+#define THRESHOLD 500
 #define N_SENSORES_PROXIMIDAD 4
 #define N_ATENUADORES 2
 
@@ -29,6 +31,7 @@ bool estado_electroiman_tablero_electrico = true;
 
 Servo servo;
 int angle = 0;
+int solved_steps = 0;
 
 struct Sensor {
 	int lectura; // WARNING: Only use for ANALOG READINGS, for digitalReadings, use actual
@@ -61,17 +64,32 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 	deserializeJson(doc, payload); // Put the info from the payload into the JSON document
 	Serial.printf("MESSAGE HANDLER: Topic: %s\n", topic);
 	if (strcmp(topic, ELECTROIMAN_CALDERA_TOPIC) == 0) {
-		estado_electroiman_caldera = doc["status"];
-		digitalWrite(PIN_ELECTROIMAN_CALDERA, estado_electroiman_caldera);
-	}
-	if (strcmp(topic, ELECTROIMAN_TABLERO_ELECTRICO_TOPIC) == 0) {
-		estado_electroiman_tablero_electrico = doc["status"];
-		digitalWrite(PIN_ELECTROIMAN_TABLERO, estado_electroiman_tablero_electrico);
+		bool status = doc["status"];
+		if (status) {
+			debugger.message("Activando electroiman caldera");
+			digitalWrite(PIN_ELECTROIMAN_CALDERA, LOW);
+		} else {
+			debugger.message("Desactivando electroiman caldera");
+			digitalWrite(PIN_ELECTROIMAN_CALDERA, HIGH);
+		}
+
+	} else if (strcmp(topic, ELECTROIMAN_TABLERO_ELECTRICO_TOPIC) == 0) {
+		bool status = doc["status"];
+		if (status) {
+			debugger.message("Activando electroiman tablero electrico");
+			digitalWrite(PIN_ELECTROIMAN_TABLERO, LOW);
+		} else {
+			debugger.message("Desactivando electroiman tablero electrico");
+			digitalWrite(PIN_ELECTROIMAN_TABLERO, HIGH);
+		}
 	}
 }
 void setup()
 {
 	Serial.begin(115200);
+	while (!Serial) {
+		;
+	}
 // See the reason of this includes here: https://arduino.stackexchange.com/a/84896
 #ifdef ESP32
 #include "soc/rtc_cntl_reg.h"
@@ -93,136 +111,162 @@ void setup()
 	mqttc.subscribe(ELECTROIMAN_CALDERA_TOPIC, 1);
 	mqttc.subscribe(ELECTROIMAN_TABLERO_ELECTRICO_TOPIC, 1);
 	servo.attach(PIN_SERVO);
+	debugger.message("Finished configuration");
+	debugger.requiered_loops = 50;
 }
 void loop()
 {
-#pragma region reading
-	// Analog read has a resolution of 12 bits ---> 0 to 4095
-	// -------------------- START OF READING SECTION --------------------
-	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
-		sensores_proximidad[i].lectura = analogRead(pines_proximidad[i]);
-		Serial.printf("Analog read del sensor %i: %i\n", i, sensores_proximidad[i].lectura);
-	}
-	for (int i = 0; i < N_ATENUADORES; i++) {
-		atenuadores[i].lectura = analogRead(pines_atenuadores[i]);
-	}
-	botones.actual = (digitalRead(PIN_BOTONES_CORRECTO) == true && digitalRead(PIN_BOTONES_INCORRECTO) == false) ? true : false;
-	interruptores.actual = (digitalRead(PIN_INTERRUPTORES_CORRECTO) == true && digitalRead(PIN_INTERRUPTORES_INCORRECTO) == false) ? true : false;
+	if (!mqttc.connected()) {
+		long now = millis();
+		if (now - lastReconnectAttempt > 5000) {
+			lastReconnectAttempt = now;
+			// Attempt to reconnect
+			if (nonblocking_reconnect()) {
+				lastReconnectAttempt = 0;
+				Serial.println("Reconnected, YEAH!!!");
+				mqttc.subscribe(ELECTROIMAN_CALDERA_TOPIC, 1);
+				mqttc.subscribe(ELECTROIMAN_TABLERO_ELECTRICO_TOPIC, 1);
+			} else {
+				Serial.println("Disconnected from MQTT broker, now attempting a reconnection");
+			}
+		}
+	} else {
 
-	// ----------- Debug of the analog readings ------------ //
-	debug("La lectura del sensor 0 es", sensores_proximidad[0].lectura, "debug");
-	debug("La lectura del sensor 1 es", sensores_proximidad[1].lectura, "debug");
-	debug("La lectura del sensor 2 es", sensores_proximidad[2].lectura, "debug");
-	debug("La lectura del sensor 3 es", sensores_proximidad[3].lectura, "debug");
-	// -------------------- END OF READING SECTION --------------------
+#pragma region reading
+		// Analog read has a resolution of 12 bits ---> 0 to 4095
+		// -------------------- START OF READING SECTION --------------------
+		for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
+			sensores_proximidad[i].lectura = analogRead(pines_proximidad[i]);
+			// Serial.printf("Analog read del sensor %i: %i\n", i, sensores_proximidad[i].lectura);
+		}
+		for (int i = 0; i < N_ATENUADORES; i++) {
+			atenuadores[i].lectura = analogRead(pines_atenuadores[i]);
+		}
+		botones.actual = (digitalRead(PIN_BOTONES_CORRECTO) == true && digitalRead(PIN_BOTONES_INCORRECTO) == false) ? true : false;
+		interruptores.actual = (digitalRead(PIN_INTERRUPTORES_CORRECTO) == true && digitalRead(PIN_INTERRUPTORES_INCORRECTO) == false) ? true : false;
+
+		// ----------- Debug of the analog readings ------------ //
+		debugger.message_number("La lectura del sensor de movimiento 0 es", sensores_proximidad[0].lectura, "debug", true);
+		debugger.message_number("La lectura del sensor de movimiento 1 es", sensores_proximidad[1].lectura, "debug", true);
+		debugger.message_number("La lectura del sensor de movimiento 2 es", sensores_proximidad[2].lectura, "debug", true);
+		debugger.message_number("La lectura del sensor de movimiento 3 es", sensores_proximidad[3].lectura, "debug", true);
+		// -------------------- END OF READING SECTION --------------------
 #pragma endregion reading
 
 #pragma region threshold
-	// -------------------- START OF THRESHOLD SECTION --------------------
-	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
-		sensores_proximidad[i].actual = (sensores_proximidad[i].lectura > THRESHOLD) ? true : false; // Si supera el threshold de cercania
-		Serial.printf("ON/OFF Sensor-%i:  %s\n", i, (sensores_proximidad[i].actual ? "ON" : "OFF"));
-	}
-	for (int i = 0; i < N_ATENUADORES; i++) {
-		// Si el potenciometro esta entre los valores establecidos
-		atenuadores[i].actual = (atenuadores[i].min < atenuadores[i].lectura && atenuadores[i].lectura < atenuadores[i].max) ? true : false;
-	}
-	// -------------------- END OF THRESHOLD SECTION --------------------
+		// -------------------- START OF THRESHOLD SECTION --------------------
+		for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
+			sensores_proximidad[i].actual = (sensores_proximidad[i].lectura > THRESHOLD) ? true : false; // Si supera el threshold de cercania
+			// Serial.printf("ON/OFF Sensor-%i:  %s\n", i, (sensores_proximidad[i].actual ? "ON" : "OFF"));
+		}
+		for (int i = 0; i < N_ATENUADORES; i++) {
+			// Si el potenciometro esta entre los valores establecidos
+			atenuadores[i].actual = (atenuadores[i].min < atenuadores[i].lectura && atenuadores[i].lectura < atenuadores[i].max) ? true : false;
+		}
+		// -------------------- END OF THRESHOLD SECTION --------------------
 #pragma endregion threshold
 
 #pragma region changed
-	// -------------------- START OF CHECK IF STATE CHANGED SECTION --------------------
-	for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
-		if (sensores_proximidad[i].state_changed()) {
-			debug("Change in the sensor movimiento N", i);
-			sensores_proximidad[i].save_to_previous();
+		// -------------------- START OF CHECK IF STATE CHANGED SECTION --------------------
+		for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
+			if (sensores_proximidad[i].state_changed()) {
+				debugger.message_number("Change in the sensor movimiento N", i);
+				sensores_proximidad[i].save_to_previous();
+				should_publish = true;
+			}
+		}
+		for (int i = 0; i < N_ATENUADORES; i++) {
+			if (atenuadores[i].state_changed()) {
+				debugger.message_number("Change in the atenuador N", i);
+				should_publish = true;
+			}
+		}
+		if (interruptores.state_changed()) {
+			debugger.message("Change in the interruptores");
 			should_publish = true;
 		}
-	}
-	for (int i = 0; i < N_ATENUADORES; i++) {
-		if (atenuadores[i].state_changed()) {
-			debug("Change in the atenuador N", i);
+		if (botones.state_changed()) {
+			debugger.message("Change in the buttons");
 			should_publish = true;
 		}
-	}
-	if (interruptores.state_changed()) {
-		debug("Change in the interruptores");
-		should_publish = true;
-	}
-	if (botones.state_changed()) {
-		debug("Change in the buttons");
-		should_publish = true;
-	}
-	// -------------------- END OF CHECK IF STATE CHANGED SECTION --------------------
+		// -------------------- END OF CHECK IF STATE CHANGED SECTION --------------------
 #pragma endregion changed
 
 #pragma region should_publish
-	// -------------------- START OF SAVE TO PREVIOUS SECTION AND PUBLISHING --------------------
-	if (should_publish) {
-		should_publish = false;
-		debug("Guardando cambios!!");
-		for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
-			sensores_proximidad[i].save_to_previous();
-		}
-		for (int i = 0; i < N_ATENUADORES; i++) {
-			atenuadores[i].save_to_previous();
-		}
-		botones.save_to_previous();
-		interruptores.save_to_previous();
+		// -------------------- START OF SAVE TO PREVIOUS SECTION AND PUBLISHING --------------------
+		if (should_publish) {
+			debugger.message("I should be publishing!!!");
+			should_publish = false;
+			for (int i = 0; i < N_SENSORES_PROXIMIDAD; i++) {
+				sensores_proximidad[i].save_to_previous();
+			}
+			for (int i = 0; i < N_ATENUADORES; i++) {
+				atenuadores[i].save_to_previous();
+			}
+			botones.save_to_previous();
+			interruptores.save_to_previous();
 
-		StaticJsonDocument<512> doc;
-		char jsonBuffer[512];
-		JsonArray doc_llaves_paso = doc.createNestedArray("llaves_paso");
-		for (Sensor sensor_proximidad : sensores_proximidad) {
-			doc_llaves_paso.add(sensor_proximidad.actual);
+			StaticJsonDocument<256> tablero_doc;
+			char jsonBuffer[256];
+			JsonArray array_atenuadores = tablero_doc.createNestedArray("atenuadores");
+			for (Sensor atenuador : atenuadores) {
+				array_atenuadores.add(atenuador.actual);
+			}
+			tablero_doc["botones"] = botones.actual;
+			tablero_doc["interruptores"] = interruptores.actual;
+			tablero_doc["electroiman_caldera"] = estado_electroiman_caldera;
+			tablero_doc["electroiman_tablero"] = estado_electroiman_tablero_electrico;
+			serializeJson(tablero_doc, jsonBuffer);
+			report_reading_to_broker("tablero_electrico", jsonBuffer);
+
+			//--------------------- LLAVES PASO ---------------------//
+			StaticJsonDocument<128> llaves_paso_doc;
+			char jsonBuffer_2[128];
+			JsonArray llaves_array = llaves_paso_doc.createNestedArray("llaves_paso");
+			for (Sensor sensor_proximidad : sensores_proximidad) {
+				llaves_array.add(sensor_proximidad.actual);
+			}
+			serializeJson(llaves_paso_doc, jsonBuffer_2);
+			report_reading_to_broker("llaves_paso", jsonBuffer_2);
 		}
-		JsonArray doc_atenuadores = doc.createNestedArray("atenuadores");
-		for (Sensor atenuador : atenuadores) {
-			doc_atenuadores.add(atenuador.actual);
-		}
-		doc["botones"] = botones.actual;
-		doc["interruptores"] = interruptores.actual;
-		doc["electroiman_caldera"] = estado_electroiman_caldera;
-		doc["electroiman_tablero"] = estado_electroiman_tablero_electrico;
-		report_reading_to_broker("tablero_electrico", doc, jsonBuffer);
-	}
 #pragma endregion should_publish
-	// -------------------- END OF SAVE TO PREVIOUS SECTION AND PUBLISHING --------------------
+		// -------------------- END OF SAVE TO PREVIOUS SECTION AND PUBLISHING --------------------
 
 #pragma region servo_control
-	// -------------------- START OF SERVO CONTROL SECTION --------------------
-	if (botones.actual == true) {
-		angle += 45;
+		// -------------------- START OF SERVO CONTROL SECTION --------------------
+		if (botones.actual == true)
+			solved_steps += 1;
+		if (atenuadores[0].actual == true && atenuadores[1].actual == true)
+			solved_steps += 1;
+		if (interruptores.actual == true)
+			solved_steps += 1;
+		if (sensores_proximidad[1].actual == true && sensores_proximidad[3].actual == true)
+			solved_steps += 1;
+		switch (solved_steps) {
+		case 0:
+			angle = 175;
+			break;
+		case 1:
+			angle = 125;
+			break;
+		case 2:
+			angle = 75;
+			break;
+		case 3:
+			angle = 30;
+			break;
+		case 4:
+			angle = 0;
+			break;
+		default:
+			debugger.message_number("ERROR: Wrong solved_steps number, number is: ", solved_steps, "error");
+			break;
+		}
 		servo.write(angle);
-	} else {
-		angle -= 45;
-		servo.write(angle);
-	}
-	if (atenuadores[0].actual == true && atenuadores[1].actual == true) {
-		angle += 45;
-		servo.write(angle);
-	} else {
-		angle -= 45;
-		servo.write(angle);
-	}
-	if (interruptores.actual == true) {
-		angle += 45;
-		servo.write(angle);
-	} else {
-		angle -= 45;
-		servo.write(angle);
-	}
-	if (sensores_proximidad[0].actual == true && sensores_proximidad[1].actual == true && sensores_proximidad[2].actual == true && sensores_proximidad[3].actual == true) {
-		angle += 45;
-		servo.write(angle);
-	} else {
-		angle -= 45;
-		servo.write(angle);
-	}
-	// -------------------- END OF SERVO CONTROL SECTION --------------------
+		solved_steps = 0;
+// -------------------- END OF SERVO CONTROL SECTION --------------------
 #pragma endregion servo_control
-	Serial.println("-------------------------------------------------------------------;");
-	Serial.println("-------------------------------------------------------------------;");
-	Serial.println("-------------------------------------------------------------------;");
-	local_delay(200); // retardo de 200ms entre lectura
+		local_delay(100); // retardo de 100ms entre lectura
+		debugger.loop();
+	}
 }

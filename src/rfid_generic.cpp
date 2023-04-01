@@ -10,7 +10,7 @@ void messageHandler(char* topic, byte* payload, unsigned int length)
 		for (int i = 0; i < NUMBER_OF_READERS; i++) {
 			lastPub[i] = "00 00 00 00";
 		}
-		debug("Cleaning reading storage");
+		debugger.message("Cleaning reading storage");
 		clearReadingStorage();
 	}
 }
@@ -29,7 +29,8 @@ void setup()
 	digitalWrite(RST_PIN, LOW); // mfrc522 readers hard power down.
 	mqttc.setCallback(messageHandler);
 	mqttc.subscribe(RESET_TOPIC);
-	debug("Finished configuration");
+	debugger.message("Finished configuration");
+	debugger.requiered_loops = 10;
 }
 void loop()
 {
@@ -45,7 +46,7 @@ void loop()
 			}
 		}
 		if (should_publish) {
-			debug("New RFID detected, reporting to broker");
+			debugger.message("New RFID detected, reporting to broker");
 			StaticJsonDocument<256> doc;
 			char jsonBuffer[256];
 			for (int i = 0; i < NUMBER_OF_READERS; i++) {
@@ -54,11 +55,13 @@ void loop()
 				Serial.println(lastPub[i]);
 				doc[String("rfid_" + String(i))] = lastPub[i];
 			}
-			report_reading_to_broker("rfid", doc, jsonBuffer);
+			serializeJson(doc, jsonBuffer);
+			report_reading_to_broker("rfid", jsonBuffer);
 		} else {
 			Serial.println("Not publishing because the state is the same as before");
 		}
 		newRFIDAppeared = false;
 	}
-	local_delay(200);
+	local_delay(100);
+	debugger.loop();
 }

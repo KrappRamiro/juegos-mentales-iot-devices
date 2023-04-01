@@ -1,18 +1,129 @@
+/**
+ * @file iot_utils.cpp
+ * @author Krapp Ramiro (krappramiro@disroot.org)
+ * @brief File used for defining all the utils function that are used in the usage of MQTT, also used to define the MQTTDebug class.
+ * Here a WifiClient instance, a PubSubClient instance and a MQTTDebug instance are also created.
+ * @version 1.0
+ * @date 2023-03-13
+ *
+ * @copyright Copyright (c) 2023
+ *
+ */
 #include "utils/iot_utils.hpp"
 #include "secrets/shared_secrets.h"
 #ifdef ESP32
 #include "soc/rtc_wdt.h"
+#include "utils/iot_utils.hpp"
 #endif
 time_t now;
 time_t nowish = 1510592825;
 // The reason why net and client are both in the header and in the source: https://stackoverflow.com/questions/74729454/platformio-c-multiple-multiple-definition-of
 WiFiClient esp_client = WiFiClient();
 PubSubClient mqttc(esp_client);
+MQTTDebug debugger = MQTTDebug();
+
+#pragma region MQTTDebug_class
+/// @brief The default constructor for MQTTDebug class
+MQTTDebug::MQTTDebug()
+{
+}
+/// @brief This function should be called at the end of every loop in your code
+void MQTTDebug::loop()
+{
+	loop_counter += 1;
+	if (loop_counter == requiered_loops) {
+		// if the loop counter has reached the point of requiered loops, debug for the following loop
+		should_debug_polling = true;
+	} else if (loop_counter > requiered_loops) {
+		// if the loop counter has passed the point of requiered loops, stop debugging and reset the counter
+		should_debug_polling = false;
+		loop_counter = 0;
+	}
+}
+/// @brief Generates a message that is published to the MQTT broker and Serial printed. This will be published at <THINGNAME>/debug/subtopic
+/// @param message The message that is going to be published
+/// @param subtopic The subtopic where you want to publish the message. Optional parameter, defaults to "info"
+void MQTTDebug::message(const char* message, const char* subtopic, bool polling)
+{
+	// Debug para solamente texto
+	if (polling && !should_debug_polling) {
+		return;
+	}
+	Serial.printf("%s: %s\n", subtopic, message);
+	// THINGNAME / debug / subtopic
+	char topic[100] = "";
+	strcat(topic, THINGNAME);
+	if (polling)
+		strcat(topic, "/debug/polling/");
+	else
+		strcat(topic, "/debug/");
+	strcat(topic, subtopic);
+	mqttc.publish(topic, message);
+}
+
+void MQTTDebug::message_number(const char* message, unsigned long number, const char* subtopic, bool polling)
+{
+	if (polling && !should_debug_polling) {
+		return;
+	}
+	// Debug que soporta printear un numero
+	// Appendeo de number a message
+	char integer_string[32];
+	char new_msg[256];
+	strcpy(new_msg, message); // copy the content of message to a new string
+	sprintf(integer_string, "%lu", number); // put the number inside an string
+	strcat(new_msg, integer_string); // message + number
+
+	Serial.printf("%s: %s\n", subtopic, new_msg);
+	// THINGNAME / debug / subtopic
+	char topic[100] = "";
+	strcat(topic, THINGNAME);
+	if (polling)
+		strcat(topic, "/debug/polling/");
+	else
+		strcat(topic, "/debug/");
+	strcat(topic, subtopic);
+	mqttc.publish(topic, new_msg);
+}
+void MQTTDebug::message_string(const char* message, const char* string, const char* subtopic, bool polling)
+{
+	if (polling && !should_debug_polling) {
+		return;
+	}
+	char new_msg[256];
+	strcpy(new_msg, message); // copy the content of message to a new string
+	strcat(new_msg, string); // message + number
+
+	Serial.printf("%s: %s\n", subtopic, new_msg);
+	// THINGNAME / debug / subtopic
+	char topic[100] = "";
+	strcat(topic, THINGNAME);
+	if (polling)
+		strcat(topic, "/debug/polling/");
+	else
+		strcat(topic, "/debug/");
+	strcat(topic, subtopic);
+	mqttc.publish(topic, new_msg);
+}
+
+#pragma endregion MQTTDebug_class
 
 void connect_mqtt_broker()
 {
+	/**
+	 * @brief Connects to the MQTT broker. Expects the following to be defined via includes or compile flags (-D platformIO flag):
+	 * WIFI_SSID
+	 * THINGNAME
+	 * WIFI_PASSWORD
+	 * MQTT_BROKER
+	 * MQTT_PORT
+	 *
+	 */
 	Serial.printf("Connecting to Wi-Fi %s\n", WIFI_SSID);
 	WiFi.mode(WIFI_STA);
+	char hostname[40] = "ESP_";
+	strcat(hostname, THINGNAME);
+	WiFi.setHostname(hostname);
 	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 	while (WiFi.status() != WL_CONNECTED) {
 		delay(250);
@@ -27,9 +138,9 @@ void connect_mqtt_broker()
 		Serial.printf("The client %s attempts to connect to the mqtt broker\n", THINGNAME);
 		if (mqttc.connect(THINGNAME)) {
 			Serial.println("Successfully connected to MQTT broker");
+			debugger.message("Connected to the broker!");
 		} else {
-			Serial.print("failed with rc=");
-			Serial.print(mqttc.state());
+			Serial.printf("failed with rc=%i\n", mqttc.state());
 			delay(2000);
 		}
 	}
@@ -39,7 +150,7 @@ void reconnect()
 {
 	// Loop until we're reconnected
 	while (!mqttc.connected()) {
-		Serial.print("Attempting MQTT connection...");
+		Serial.print("Attempting MQTT REconnection...");
 		// Attempt to connect
 		if (mqttc.connect(THINGNAME)) {
 			Serial.println("connected");
@@ -51,6 +162,19 @@ void reconnect()
 			delay(3000);
 		}
 	}
+}
+
+bool nonblocking_reconnect()
+{
+	if (mqttc.connect(THINGNAME)) {
+		// Once connected, publish an announcement...
+		char topic[100] = "";
+		strcat(topic, THINGNAME);
+		strcat(topic, "/status");
+		const char* result = (mqttc.publish(topic, "ONLINE", true)) ? "success publishing reconnection message" : "failed publishing reconnection message";
+		Serial.println(result);
+	}
+	return mqttc.connected();
 }
 
 void NTPConnect(void)
@@ -92,39 +216,9 @@ void local_delay(unsigned long millisecs)
 		}
 	}
 }
-void debug(const char* message, const char* subtopic)
-{
-	// Debug para solamente texto
-	Serial.printf("%s: %s\n", subtopic, message);
-	// THINGNAME / debug / subtopic
-	char topic[100] = "";
-	strcat(topic, THINGNAME);
-	strcat(topic, "/debug/");
-	strcat(topic, subtopic);
-	mqttc.publish(topic, message);
-}
-
-void debug(char* message, int number, const char* subtopic)
-{
-	// Debug que soporta printear un numero
-	// Appendeo de number a message
-	char integer_string[32];
-	sprintf(integer_string, "%i", number);
-	strcat(message, integer_string);
-
-	Serial.printf("%s: %s\n", subtopic, message);
-	// THINGNAME / debug / subtopic
-	char topic[100] = "";
-	strcat(topic, THINGNAME);
-	strcat(topic, "/debug/");
-	strcat(topic, subtopic);
-	mqttc.publish(topic, message);
-}
-
-void report_reading_to_broker(const char* subtopic, JsonDocument& doc, char* jsonBuffer)
+void report_reading_to_broker(const char* subtopic, char* jsonBuffer)
 {
 	// This function serializes the JsonDocument into the JsonBuffer and then publishes it to <THINGNAME>/readings/<subtopic>
-	serializeJson(doc, jsonBuffer, doc.size());
 	char topic[100] = "";
 	strcat(topic, THINGNAME);
 	strcat(topic, "/readings/");

@@ -10,6 +10,7 @@
 bool current_state = false; // current state of the button
 bool previous_state = false;
 int cny70_reading = 0;
+int debug_counter = 0;
 
 void setup()
 {
@@ -18,7 +19,8 @@ void setup()
 		; // Do nothing until serial connection is opened
 	connect_mqtt_broker();
 	pinMode(BUTTON_PIN, INPUT);
-	debug("Finished configuration");
+	debugger.message("Finished configuration");
+	debugger.requiered_loops = 30;
 }
 
 void loop()
@@ -34,16 +36,18 @@ void loop()
 		StaticJsonDocument<64> doc;
 		char jsonBuffer[64];
 		doc["switch"] = current_state;
-		report_reading_to_broker("switch", doc, jsonBuffer);
+		serializeJson(doc, jsonBuffer);
+		report_reading_to_broker("switch", jsonBuffer);
 	}
 	cny70_reading = analogRead(CNY70_PIN);
-	debug("La lectura es", cny70_reading, "debug");
+	debugger.message_number("La lectura es ", cny70_reading, "debug", true);
 	if ((cny70_reading) > THRESHOLD) {
-		debug("MOSFET ON");
 		analogWrite(MOSFET_PIN, 255);
+		debugger.message("MOSFET ON", "info", true);
 	} else {
-		debug("MOSFET OFF");
 		analogWrite(MOSFET_PIN, 0);
+		debugger.message("MOSFET OFF", "info", true);
 	}
-	local_delay(200);
+	local_delay(100);
+	debugger.loop();
 }
